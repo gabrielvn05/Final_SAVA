@@ -182,3 +182,84 @@ export async function delegarCapacidad(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/admin/usuarios");
 }
+
+export async function solicitarCuenta(formData: FormData) {
+  const supabase = createSupabaseServerClient();
+  const email = getTextField(formData, "email");
+  const nombres = getTextField(formData, "nombres");
+  const apellidos = getTextField(formData, "apellidos");
+  const rolSolicitado = getTextField(formData, "rol_solicitado", "administrativo");
+  const motivo = getTextField(formData, "motivo");
+
+  const { error } = await supabase.from("account_requests").insert({
+    email,
+    nombres,
+    apellidos,
+    rol_solicitado: rolSolicitado,
+    motivo
+  });
+
+  if (error) throw new Error(error.message);
+  redirect("/login?solicitud=ok");
+}
+
+export async function aprobarSolicitudCuenta(requestId: string) {
+  const { user } = await requireAuth();
+  const puedeGestionar = await hasCapability(user.id, "gestionar_usuarios");
+  if (!puedeGestionar) throw new Error("Solo Decano puede aprobar solicitudes de cuenta.");
+
+  const admin = createSupabaseAdminClient();
+  const { data: req, error: reqErr } = await admin
+    .from("account_requests")
+    .select("id, email, nombres, apellidos, rol_solicitado, status")
+    .eq("id", requestId)
+    .single();
+
+  if (reqErr || !req) throw new Error("No se encontro la solicitud.");
+  if (req.status !== "pendiente") return;
+
+  const tempPassword = "SavaTemporal2026!";
+  const { data, error } = await admin.auth.admin.createUser({
+    email: req.email,
+    password: tempPassword,
+    email_confirm: true,
+    user_metadata: {
+      nombres: req.nombres,
+      apellidos: req.apellidos,
+      rol: req.rol_solicitado
+    }
+  });
+  if (error || !data.user) throw new Error(error?.message || "No se pudo crear usuario.");
+
+  // Perfil puede crearse por trigger auth.users, pero aseguramos por compatibilidad.
+  await admin.from("profiles").upsert({
+    id: data.user.id,
+    email: req.email,
+    nombres: req.nombres,
+    apellidos: req.apellidos,
+    rol: req.rol_solicitado,
+    activo: true
+  });
+
+  const { error: updErr } = await admin
+    .from("account_requests")
+    .update({ status: "aprobada", handled_by: user.id, handled_at: new Date().toISOString() })
+    .eq("id", requestId);
+  if (updErr) throw new Error(updErr.message);
+
+  revalidatePath("/admin/solicitudes-cuenta");
+}
+
+export async function rechazarSolicitudCuenta(requestId: string) {
+  const { user } = await requireAuth();
+  const puedeGestionar = await hasCapability(user.id, "gestionar_usuarios");
+  if (!puedeGestionar) throw new Error("Solo Decano puede rechazar solicitudes de cuenta.");
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("account_requests")
+    .update({ status: "rechazada", handled_by: user.id, handled_at: new Date().toISOString() })
+    .eq("id", requestId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/solicitudes-cuenta");
+}

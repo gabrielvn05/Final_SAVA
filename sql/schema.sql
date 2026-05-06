@@ -39,12 +39,65 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
+-- Crear profile automaticamente al crear usuario en Auth
+create or replace function public.handle_new_auth_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_email text;
+  v_nombres text;
+  v_apellidos text;
+  v_rol app_role;
+begin
+  v_email := coalesce(new.email, '');
+  v_nombres := coalesce(new.raw_user_meta_data->>'nombres', 'Pendiente');
+  v_apellidos := coalesce(new.raw_user_meta_data->>'apellidos', 'Pendiente');
+  v_rol := coalesce((new.raw_user_meta_data->>'rol')::app_role, 'administrativo');
+
+  insert into public.profiles(id, email, nombres, apellidos, rol, activo)
+  values (new.id, v_email, v_nombres, v_apellidos, v_rol, true)
+  on conflict (id) do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute procedure public.handle_new_auth_user();
+
 create table if not exists public.user_capabilities (
   user_id uuid not null references public.profiles(id) on delete cascade,
   capability capability_type not null,
   otorgado_por uuid references public.profiles(id),
   created_at timestamptz not null default now(),
   primary key (user_id, capability)
+);
+
+-- Solicitudes de cuenta (creadas desde login y aprobadas por Decano)
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'account_request_status') then
+    create type account_request_status as enum ('pendiente', 'aprobada', 'rechazada');
+  end if;
+end $$;
+
+create table if not exists public.account_requests (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  nombres text not null,
+  apellidos text not null,
+  rol_solicitado app_role not null default 'administrativo',
+  motivo text,
+  status account_request_status not null default 'pendiente',
+  handled_by uuid references public.profiles(id),
+  handled_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique(email, status) deferrable initially immediate
 );
 
 create table if not exists public.solicitudes (
@@ -137,6 +190,7 @@ $$;
 alter table public.profiles enable row level security;
 alter table public.user_capabilities enable row level security;
 alter table public.solicitudes enable row level security;
+alter table public.account_requests enable row level security;
 
 create or replace function public.current_user_role()
 returns app_role
@@ -169,6 +223,11 @@ create policy profiles_self_read
 on public.profiles for select
 using (id = auth.uid() or public.current_user_role() in ('decano', 'superusuario'));
 
+drop policy if exists profiles_insert_own on public.profiles;
+create policy profiles_insert_own
+on public.profiles for insert
+with check (id = auth.uid());
+
 drop policy if exists profiles_insert_decano on public.profiles;
 create policy profiles_insert_decano
 on public.profiles for insert
@@ -182,6 +241,23 @@ using (user_id = auth.uid() or public.has_capability('gestionar_usuarios'));
 drop policy if exists capabilities_manage_decano on public.user_capabilities;
 create policy capabilities_manage_decano
 on public.user_capabilities for all
+using (public.has_capability('gestionar_usuarios'))
+with check (public.has_capability('gestionar_usuarios'));
+
+-- Account requests policies
+drop policy if exists account_requests_insert_anon on public.account_requests;
+create policy account_requests_insert_anon
+on public.account_requests for insert
+with check (auth.role() in ('anon', 'authenticated'));
+
+drop policy if exists account_requests_select_decano on public.account_requests;
+create policy account_requests_select_decano
+on public.account_requests for select
+using (public.has_capability('gestionar_usuarios'));
+
+drop policy if exists account_requests_update_decano on public.account_requests;
+create policy account_requests_update_decano
+on public.account_requests for update
 using (public.has_capability('gestionar_usuarios'))
 with check (public.has_capability('gestionar_usuarios'));
 

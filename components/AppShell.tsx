@@ -11,7 +11,8 @@ type AppShellProps = Readonly<{
 const NAV = [
   { href: "/dashboard", label: "Inicio" },
   { href: "/solicitudes", label: "Solicitudes" },
-  { href: "/admin/usuarios", label: "Usuarios" }
+  { href: "/admin/usuarios", label: "Usuarios" },
+  { href: "/admin/solicitudes-cuenta", label: "Solicitudes de cuenta" }
 ] as const;
 
 function etiquetaRol(rol: string) {
@@ -29,9 +30,7 @@ export async function AppShell({ userId, userEmail, children }: AppShellProps) {
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar__brand">
-          <div className="topbar__logo" aria-hidden>
-            <span>S</span>
-          </div>
+          <img src="/branding/uleam.png" alt="ULEAM" style={{ height: 40, width: 40, borderRadius: 8 }} />
           <div className="topbar__titles">
             <span className="topbar__name">SAVA</span>
             <span className="topbar__tagline">Permisos y justificaciones</span>

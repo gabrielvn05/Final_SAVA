@@ -38,7 +38,8 @@ export async function getUserProfile(userId: string): Promise<UserProfile> {
     .single();
 
   if (error || !data) {
-    throw new Error("No se pudo obtener el perfil del usuario.");
+    const details = error ? `${error.code ?? ""} ${error.message}`.trim() : "sin datos";
+    throw new Error(`No se pudo obtener el perfil del usuario (${details}).`);
   }
 
   return data as UserProfile;

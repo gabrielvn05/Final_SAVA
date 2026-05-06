@@ -32,6 +32,11 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
     <div className="login-page">
       <aside className="login-hero">
         <span className="login-hero__badge">Acceso institucional</span>
+        <img
+          src="/branding/uleam-horizontal.png"
+          alt="ULEAM"
+          style={{ maxWidth: 240, width: "100%", height: "auto" }}
+        />
         <h1>Gestion de permisos y justificaciones</h1>
         <p>Plataforma para registrar solicitudes, adjuntar justificativos y completar el flujo de firma.</p>
       </aside>
@@ -56,6 +61,11 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
               Entrar al sistema
             </button>
           </form>
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <a className="btn btn--link btn--sm" href="/solicitar-cuenta">
+              Solicitar cuenta
+            </a>
+          </div>
         </div>
       </div>
     </div>
