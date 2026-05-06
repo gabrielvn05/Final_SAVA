@@ -82,6 +82,24 @@ create trigger trg_set_updated_at_solicitudes
 before update on public.solicitudes
 for each row execute procedure public.set_updated_at();
 
+-- Tras crear perfil, asignar capacidades por rol
+create or replace function public.handle_profile_after_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.seed_default_capabilities(new.id, new.rol);
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_profile_seed_caps on public.profiles;
+create trigger trg_profile_seed_caps
+after insert on public.profiles
+for each row execute procedure public.handle_profile_after_insert();
+
 -- Capacidades por defecto según rol
 create or replace function public.seed_default_capabilities(p_user_id uuid, p_role app_role)
 returns void

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getUserProfile, hasCapability, requireAuth } from "@/lib/auth";
+import { PageHeader } from "@/components/PageHeader";
 
 export default async function DashboardPage() {
   const { user } = await requireAuth();
@@ -13,22 +14,40 @@ export default async function DashboardPage() {
 
   return (
     <section className="stack">
-      <article className="card stack">
-        <h1 style={{ margin: 0 }}>Bienvenido/a, {profile.nombres}</h1>
-        <p style={{ margin: 0 }}>
-          Rol principal: <strong>{profile.rol}</strong>
-        </p>
-      </article>
-
-      <article className="card stack">
-        <h2 style={{ margin: 0 }}>Accesos habilitados</h2>
-        <div className="row">
-          <Link href="/solicitudes">Ver, crear y editar solicitudes</Link>
-          {puedeRevisar && <span>Revisión de secretaría habilitada</span>}
-          {puedeAprobar && <span>Aprobación/firma habilitada</span>}
-          {puedeGestionar && <Link href="/admin/usuarios">Crear usuarios y delegar</Link>}
-        </div>
-      </article>
+      <PageHeader
+        title={`Hola, ${profile.nombres}`}
+        subtitle="Resumen de tu rol en el flujo de permisos y justificaciones."
+      />
+      <div className="dashboard-grid">
+        <article className="card dashboard-tile stack">
+          <h2 style={{ margin: 0 }}>Solicitudes</h2>
+          <p className="field-hint">Consulta, crea y edita solicitudes con justificativo.</p>
+          <Link href="/solicitudes" className="btn btn--primary btn--sm" style={{ width: "fit-content" }}>
+            Ir a solicitudes
+          </Link>
+        </article>
+        {puedeRevisar ? (
+          <article className="card dashboard-tile stack" style={{ borderLeftColor: "var(--color-warning)" }}>
+            <h2 style={{ margin: 0 }}>Revision (Secretaria)</h2>
+            <p className="field-hint">Puedes validar datos y enviar expedientes al Decano.</p>
+          </article>
+        ) : null}
+        {puedeAprobar ? (
+          <article className="card dashboard-tile stack" style={{ borderLeftColor: "var(--color-success)" }}>
+            <h2 style={{ margin: 0 }}>Aprobacion y firma</h2>
+            <p className="field-hint">Autoriza o rechaza solicitudes revisadas.</p>
+          </article>
+        ) : null}
+        {puedeGestionar ? (
+          <article className="card dashboard-tile stack" style={{ borderLeftColor: "var(--color-accent)" }}>
+            <h2 style={{ margin: 0 }}>Usuarios</h2>
+            <p className="field-hint">Alta de cuentas y delegacion de funciones.</p>
+            <Link href="/admin/usuarios" className="btn btn--secondary btn--sm" style={{ width: "fit-content" }}>
+              Gestionar usuarios
+            </Link>
+          </article>
+        ) : null}
+      </div>
     </section>
   );
 }

@@ -22,7 +22,11 @@ Sistema web inicial con `Next.js` + `Supabase` para gestionar permisos/justifica
    - `npm install`
 2. Crea `.env.local` desde `.env.example`.
 3. Ejecuta `sql/schema.sql` en Supabase SQL Editor.
-4. Levanta el proyecto:
+4. Crea los 4 usuarios de prueba:
+   - `npm run seed`
+   - correos: `superusuario@sava.test`, `decano@sava.test`, `secretaria@sava.test`, `administrativo@sava.test`
+   - contraseña por defecto: `SavaDemo2026!` (o `SEED_TEST_PASSWORD`)
+5. Levanta el proyecto:
    - `npm run dev`
 
 ## Importante sobre creación de usuarios

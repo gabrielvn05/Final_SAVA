@@ -1,6 +1,7 @@
 import { crearUsuarioInterno, delegarCapacidad } from "@/app/actions";
 import { hasCapability, requireAuth } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/PageHeader";
 
 export default async function UsuariosPage() {
   const { user } = await requireAuth();
@@ -8,8 +9,11 @@ export default async function UsuariosPage() {
 
   if (!puedeGestionar) {
     return (
-      <section className="card">
-        <p>Solo Decano puede crear usuarios y delegar funcionalidades.</p>
+      <section className="stack">
+        <PageHeader title="Usuarios" subtitle="Modulo reservado para Decano." />
+        <article className="card">
+          <p>No tienes permiso para crear usuarios ni delegar funcionalidades.</p>
+        </article>
       </section>
     );
   }
@@ -22,50 +26,82 @@ export default async function UsuariosPage() {
 
   return (
     <section className="stack">
+      <PageHeader
+        title="Administracion de usuarios"
+        subtitle="Alta de cuentas y delegacion de capacidades."
+      />
       <article className="card stack">
-        <h1>Crear nuevo usuario</h1>
+        <h2 style={{ margin: 0 }}>Nuevo usuario</h2>
         <form action={crearUsuarioInterno} className="stack">
-          <div className="row">
-            <input name="nombres" placeholder="Nombres" required />
-            <input name="apellidos" placeholder="Apellidos" required />
+          <div className="form-grid form-grid--2">
+            <div>
+              <label htmlFor="nombres">Nombres</label>
+              <input id="nombres" name="nombres" placeholder="Nombres" required />
+            </div>
+            <div>
+              <label htmlFor="apellidos">Apellidos</label>
+              <input id="apellidos" name="apellidos" placeholder="Apellidos" required />
+            </div>
           </div>
-          <input name="email" type="email" placeholder="Correo" required />
-          <input name="password" type="password" placeholder="Contraseña temporal" required />
-          <select name="rol" defaultValue="administrativo">
-            <option value="administrativo">Administrativo</option>
-            <option value="secretaria">Secretaria</option>
-            <option value="decano">Decano</option>
-            <option value="superusuario">Superusuario</option>
-          </select>
-          <button type="submit">Crear usuario</button>
+          <div className="form-grid form-grid--2">
+            <div>
+              <label htmlFor="email">Correo</label>
+              <input id="email" name="email" type="email" placeholder="correo@institucion.edu" required />
+            </div>
+            <div>
+              <label htmlFor="password">Contrasena temporal</label>
+              <input id="password" name="password" type="password" placeholder="Minimo 6 caracteres" required />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="rol">Rol</label>
+            <select id="rol" name="rol" defaultValue="administrativo">
+              <option value="administrativo">Administrativo</option>
+              <option value="secretaria">Secretaria</option>
+              <option value="decano">Decano</option>
+              <option value="superusuario">Superusuario</option>
+            </select>
+          </div>
+          <button className="btn btn--primary" type="submit">
+            Crear usuario
+          </button>
         </form>
       </article>
 
       <article className="card stack">
-        <h2>Delegar funcionalidad</h2>
-        <form action={delegarCapacidad} className="row">
-          <select name="user_id" required defaultValue="">
-            <option value="" disabled>
-              Seleccionar usuario
-            </option>
-            {(usuarios || []).map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.nombres} {u.apellidos} - {u.rol}
+        <h2 style={{ margin: 0 }}>Delegar funcionalidad</h2>
+        <form action={delegarCapacidad} className="form-grid form-grid--2">
+          <div>
+            <label htmlFor="user_id">Usuario</label>
+            <select id="user_id" name="user_id" required defaultValue="">
+              <option value="" disabled>
+                Seleccionar usuario
               </option>
-            ))}
-          </select>
-          <select name="capability" required defaultValue="revisar_solicitudes">
-            <option value="generar_solicitudes">Generar solicitudes</option>
-            <option value="revisar_solicitudes">Revisar solicitudes</option>
-            <option value="aprobar_solicitudes">Aprobar solicitudes</option>
-            <option value="gestionar_usuarios">Gestionar usuarios</option>
-          </select>
-          <button type="submit">Delegar</button>
+              {(usuarios || []).map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.nombres} {u.apellidos} - {u.rol}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="capability">Capacidad</label>
+            <select id="capability" name="capability" required defaultValue="revisar_solicitudes">
+              <option value="generar_solicitudes">Generar solicitudes</option>
+              <option value="revisar_solicitudes">Revisar solicitudes</option>
+              <option value="aprobar_solicitudes">Aprobar solicitudes</option>
+              <option value="gestionar_usuarios">Gestionar usuarios</option>
+            </select>
+          </div>
+          <button className="btn btn--secondary" type="submit">
+            Delegar
+          </button>
         </form>
       </article>
 
-      <article className="card">
-        <table>
+      <article className="card card--flat">
+        <div className="table-wrap">
+        <table className="data-table">
           <thead>
             <tr>
               <th>Nombre</th>
@@ -82,11 +118,12 @@ export default async function UsuariosPage() {
                 </td>
                 <td>{u.email}</td>
                 <td>{u.rol}</td>
-                <td>{u.activo ? "Activo" : "Inactivo"}</td>
+                <td>{u.activo ? <span className="badge badge--success">Activo</span> : <span className="badge badge--muted">Inactivo</span>}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </article>
     </section>
   );

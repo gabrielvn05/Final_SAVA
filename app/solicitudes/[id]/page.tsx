@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
+import { PageHeader } from "@/components/PageHeader";
+import { StatusBadge } from "@/components/StatusBadge";
 
 type Params = { id: string };
 
@@ -25,36 +27,67 @@ export default async function SolicitudDetallePage({ params }: Readonly<{ params
     );
   }
 
+  const justificativoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/justificativos/${data.justificativo_path}`;
+  const tipoLabel = data.tipo === "permiso" ? "Permiso" : "Justificacion";
+
   return (
-    <section className="card stack">
-      <h1>Detalle de solicitud</h1>
-      <p>
-        <strong>Tipo:</strong> {data.tipo}
-      </p>
-      <p>
-        <strong>Estado:</strong> {data.estado}
-      </p>
-      <p>
-        <strong>Fecha:</strong> {data.fecha_inicio} al {data.fecha_fin}
-      </p>
-      <p>
-        <strong>Motivo:</strong> {data.motivo}
-      </p>
-      <p>
-        <strong>Justificativo:</strong>{" "}
-        <Link href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/justificativos/${data.justificativo_path}`}>
-          {data.justificativo_nombre}
-        </Link>
-      </p>
-      <p>
-        <strong>Observación Secretaría:</strong> {data.observaciones_secretaria || "-"}
-      </p>
-      <p>
-        <strong>Observación Decano:</strong> {data.observaciones_decano || "-"}
-      </p>
-      <p>
-        <strong>Fecha firma:</strong> {data.fecha_firma || "-"}
-      </p>
+    <section className="stack">
+      <PageHeader
+        title="Detalle de solicitud"
+        subtitle={`Referencia ${data.id.slice(0, 8)}...`}
+        actions={
+          <div className="row">
+            <Link href={`/solicitudes/${id}/editar`} className="btn btn--primary">
+              Editar
+            </Link>
+            <Link href="/solicitudes" className="btn btn--secondary">
+              Volver
+            </Link>
+          </div>
+        }
+      />
+      <article className="card stack">
+        <div className="row">
+          <span className="field-hint">Estado</span>
+          <StatusBadge estado={data.estado} />
+        </div>
+        <div className="detail-grid">
+          <div>
+            <label>Tipo</label>
+            <div>{tipoLabel}</div>
+          </div>
+          <div>
+            <label>Periodo</label>
+            <div>
+              {data.fecha_inicio} - {data.fecha_fin}
+            </div>
+          </div>
+          <div>
+            <label>Justificativo</label>
+            <div>
+              <a href={justificativoUrl} target="_blank" rel="noopener noreferrer">
+                {data.justificativo_nombre}
+              </a>
+            </div>
+          </div>
+          <div>
+            <label>Fecha firma</label>
+            <div>{data.fecha_firma || "-"}</div>
+          </div>
+          <div className="motivo-box">
+            <label>Motivo</label>
+            <div>{data.motivo}</div>
+          </div>
+          <div>
+            <label>Observacion Secretaria</label>
+            <div>{data.observaciones_secretaria || "-"}</div>
+          </div>
+          <div>
+            <label>Observacion Decano</label>
+            <div>{data.observaciones_decano || "-"}</div>
+          </div>
+        </div>
+      </article>
     </section>
   );
 }

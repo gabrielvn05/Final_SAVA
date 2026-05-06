@@ -2,6 +2,12 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hasCapability, requireAuth } from "@/lib/auth";
 import { firmarSolicitud, revisarSolicitud } from "@/app/actions";
+import { PageHeader } from "@/components/PageHeader";
+import { StatusBadge } from "@/components/StatusBadge";
+
+function labelTipo(tipo: string) {
+  return tipo === "permiso" ? "Permiso" : "Justificacion";
+}
 
 export default async function SolicitudesPage() {
   const { user } = await requireAuth();
@@ -17,17 +23,22 @@ export default async function SolicitudesPage() {
 
   return (
     <section className="stack">
-      <article className="card row" style={{ justifyContent: "space-between" }}>
-        <h1 style={{ margin: 0 }}>Solicitudes</h1>
-        <Link href="/solicitudes/nueva">Nueva solicitud</Link>
-      </article>
-
-      <article className="card">
-        <table>
+      <PageHeader
+        title="Solicitudes"
+        subtitle="Registro central de permisos y justificaciones."
+        actions={
+          <Link href="/solicitudes/nueva" className="btn btn--primary">
+            Nueva solicitud
+          </Link>
+        }
+      />
+      <article className="card card--flat">
+        <div className="table-wrap">
+        <table className="data-table">
           <thead>
             <tr>
               <th>Tipo</th>
-              <th>Rango</th>
+              <th>Periodo</th>
               <th>Estado</th>
               <th>Motivo</th>
               <th>Justificativo</th>
@@ -35,18 +46,25 @@ export default async function SolicitudesPage() {
             </tr>
           </thead>
           <tbody>
-            {(data || []).map((s) => (
+            {(data || []).length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
+                  No hay solicitudes registradas.
+                </td>
+              </tr>
+            ) : (data || []).map((s) => (
               <tr key={s.id}>
-                <td>{s.tipo}</td>
+                <td>{labelTipo(s.tipo)}</td>
                 <td>
                   {s.fecha_inicio} - {s.fecha_fin}
                 </td>
-                <td>{s.estado}</td>
-                <td>{s.motivo}</td>
-                <td>{s.justificativo_nombre}</td>
-                <td className="row">
-                  <Link href={`/solicitudes/${s.id}`}>Ver</Link>
-                  <Link href={`/solicitudes/${s.id}/editar`}>Editar</Link>
+                <td><StatusBadge estado={s.estado} /></td>
+                <td><span className="text-truncate">{s.motivo}</span></td>
+                <td><span className="text-truncate">{s.justificativo_nombre}</span></td>
+                <td>
+                  <div className="cell-actions">
+                  <Link href={`/solicitudes/${s.id}`} className="btn btn--link btn--sm">Ver</Link>
+                  <Link href={`/solicitudes/${s.id}/editar`} className="btn btn--link btn--sm">Editar</Link>
                   {puedeRevisar && s.estado === "en_revision_secretaria" && (
                     <form
                       action={async () => {
@@ -54,7 +72,7 @@ export default async function SolicitudesPage() {
                         await revisarSolicitud(s.id, "Revisado por secretaría.");
                       }}
                     >
-                      <button type="submit">Enviar a Decano</button>
+                      <button className="btn btn--secondary btn--sm" type="submit">Enviar a Decano</button>
                     </form>
                   )}
                   {puedeAprobar && s.estado === "pendiente_aprobacion_decano" && (
@@ -65,7 +83,7 @@ export default async function SolicitudesPage() {
                           await firmarSolicitud(s.id, true, "Aprobado y firmado por Decano.");
                         }}
                       >
-                        <button type="submit">Aprobar</button>
+                        <button className="btn btn--success btn--sm" type="submit">Aprobar</button>
                       </form>
                       <form
                         action={async () => {
@@ -73,17 +91,19 @@ export default async function SolicitudesPage() {
                           await firmarSolicitud(s.id, false, "Rechazado por Decano.");
                         }}
                       >
-                        <button className="secondary" type="submit">
+                        <button className="btn btn--danger btn--sm" type="submit">
                           Rechazar
                         </button>
                       </form>
                     </>
                   )}
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </article>
     </section>
   );
