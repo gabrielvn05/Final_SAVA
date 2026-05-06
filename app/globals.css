@@ -433,3 +433,9 @@ label {
   white-space: nowrap;
   vertical-align: bottom;
 }
+
+.file-input {
+  padding: 0.6rem;
+  border: 2px dashed var(--color-border);
+  background: #fafbfd;
+}

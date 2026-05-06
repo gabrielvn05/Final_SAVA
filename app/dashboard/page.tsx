@@ -1,15 +1,35 @@
 import Link from "next/link";
 import { getUserProfile, hasCapability, requireAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function DashboardPage() {
   const { user } = await requireAuth();
   const profile = await getUserProfile(user.id);
+  const supabase = createSupabaseServerClient();
 
-  const [puedeRevisar, puedeAprobar, puedeGestionar] = await Promise.all([
+  const [puedeRevisar, puedeAprobar] = await Promise.all([
     hasCapability(user.id, "revisar_solicitudes"),
     hasCapability(user.id, "aprobar_solicitudes"),
-    hasCapability(user.id, "gestionar_usuarios")
+  ]);
+
+  const [
+    { count: solicitudesPendientesFirma = 0 },
+    { count: solicitudesPendientesSecretaria = 0 },
+    { count: solicitudesCuentaPendientes = 0 }
+  ] = await Promise.all([
+    supabase
+      .from("solicitudes")
+      .select("*", { head: true, count: "exact" })
+      .eq("estado", "pendiente_aprobacion_decano"),
+    supabase
+      .from("solicitudes")
+      .select("*", { head: true, count: "exact" })
+      .eq("estado", "en_revision_secretaria"),
+    supabase
+      .from("account_requests")
+      .select("*", { head: true, count: "exact" })
+      .eq("status", "pendiente")
   ]);
 
   return (
@@ -26,24 +46,44 @@ export default async function DashboardPage() {
             Ir a solicitudes
           </Link>
         </article>
-        {puedeRevisar ? (
+        {!Number.isNaN(solicitudesPendientesSecretaria) && profile.rol !== "superusuario" && puedeRevisar ? (
           <article className="card dashboard-tile stack" style={{ borderLeftColor: "var(--color-warning)" }}>
             <h2 style={{ margin: 0 }}>Revision (Secretaria)</h2>
-            <p className="field-hint">Puedes validar datos y enviar expedientes al Decano.</p>
+            <p className="field-hint">Pendientes por revisar: {solicitudesPendientesSecretaria}</p>
+            <Link href="/solicitudes" className="btn btn--secondary btn--sm" style={{ width: "fit-content" }}>
+              Revisar ahora
+            </Link>
           </article>
         ) : null}
-        {puedeAprobar ? (
+        {puedeAprobar && profile.rol !== "superusuario" ? (
           <article className="card dashboard-tile stack" style={{ borderLeftColor: "var(--color-success)" }}>
             <h2 style={{ margin: 0 }}>Aprobacion y firma</h2>
-            <p className="field-hint">Autoriza o rechaza solicitudes revisadas.</p>
+            <p className="field-hint">Pendientes de firma: {solicitudesPendientesFirma}</p>
+            <Link href="/solicitudes" className="btn btn--secondary btn--sm" style={{ width: "fit-content" }}>
+              Atender pendientes
+            </Link>
           </article>
         ) : null}
-        {puedeGestionar ? (
+        {profile.rol === "decano" ? (
           <article className="card dashboard-tile stack" style={{ borderLeftColor: "var(--color-accent)" }}>
-            <h2 style={{ margin: 0 }}>Usuarios</h2>
-            <p className="field-hint">Alta de cuentas y delegacion de funciones.</p>
-            <Link href="/admin/usuarios" className="btn btn--secondary btn--sm" style={{ width: "fit-content" }}>
-              Gestionar usuarios
+            <h2 style={{ margin: 0 }}>Usuarios y solicitudes de cuenta</h2>
+            <p className="field-hint">Solicitudes de cuenta pendientes: {solicitudesCuentaPendientes}</p>
+            <div className="row">
+              <Link href="/admin/usuarios" className="btn btn--secondary btn--sm" style={{ width: "fit-content" }}>
+                Gestionar usuarios
+              </Link>
+              <Link href="/admin/solicitudes-cuenta" className="btn btn--primary btn--sm" style={{ width: "fit-content" }}>
+                Revisar solicitudes
+              </Link>
+            </div>
+          </article>
+        ) : null}
+        {profile.rol === "secretaria" ? (
+          <article className="card dashboard-tile stack" style={{ borderLeftColor: "var(--color-warning)" }}>
+            <h2 style={{ margin: 0 }}>Solicitudes de cuenta (rechazo)</h2>
+            <p className="field-hint">Pendientes por resolver: {solicitudesCuentaPendientes}</p>
+            <Link href="/admin/solicitudes-cuenta" className="btn btn--secondary btn--sm" style={{ width: "fit-content" }}>
+              Abrir bandeja
             </Link>
           </article>
         ) : null}

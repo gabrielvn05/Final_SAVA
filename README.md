@@ -26,6 +26,7 @@ Sistema web inicial con `Next.js` + `Supabase` para gestionar permisos/justifica
    - `npm run seed`
    - correos: `superusuario@sava.test`, `decano@sava.test`, `secretaria@sava.test`, `administrativo@sava.test`
    - contraseña por defecto: `SavaDemo2026!` (o `SEED_TEST_PASSWORD`)
+   - contraseña temporal para altas: `SavaTemporal2026!` (o `SEED_TEMP_PASSWORD`)
 5. Levanta el proyecto:
    - `npm run dev`
 

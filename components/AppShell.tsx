@@ -25,12 +25,21 @@ function etiquetaRol(rol: string) {
 export async function AppShell({ userId, userEmail, children }: AppShellProps) {
   const profile = await getUserProfile(userId);
   const rolLabel = etiquetaRol(profile.rol);
+  const esDecano = profile.rol === "decano";
+  const esSuper = profile.rol === "superusuario";
+  const mostrarPill = !esSuper;
+  const nav = [
+    { href: "/dashboard", label: "Inicio" },
+    { href: "/solicitudes", label: "Solicitudes" },
+    ...(esDecano ? [{ href: "/admin/usuarios", label: "Usuarios" }] : []),
+    ...(esDecano ? [{ href: "/admin/solicitudes-cuenta", label: "Solicitudes de cuenta" }] : [])
+  ] as const;
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar__brand">
-          <img src="/branding/uleam.png" alt="ULEAM" style={{ height: 40, width: 40, borderRadius: 8 }} />
+          <img src="/branding/LOGO-ULEAM-VERTICAL.png" alt="ULEAM" style={{ height: 80, width: 100, borderRadius: 8 }} />
           <div className="topbar__titles">
             <span className="topbar__name">SAVA</span>
             <span className="topbar__tagline">Permisos y justificaciones</span>
@@ -38,7 +47,7 @@ export async function AppShell({ userId, userEmail, children }: AppShellProps) {
         </div>
 
         <nav className="topbar__nav" aria-label="Principal">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <Link key={item.href} href={item.href} className="topbar__link">
               {item.label}
             </Link>
@@ -51,7 +60,7 @@ export async function AppShell({ userId, userEmail, children }: AppShellProps) {
               {profile.nombres} {profile.apellidos}
             </span>
             <span className="topbar__user-email">{userEmail ?? profile.rol}</span>
-            <span className="topbar__pill">{rolLabel}</span>
+            {mostrarPill ? <span className="topbar__pill">{rolLabel}</span> : null}
           </div>
           <form action="/logout" method="post">
             <button className="btn btn--ghost" type="submit">

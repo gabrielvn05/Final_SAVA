@@ -27,8 +27,24 @@ export default async function SolicitudDetallePage({ params }: Readonly<{ params
     );
   }
 
-  const justificativoUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/justificativos/${data.justificativo_path}`;
-  const tipoLabel = data.tipo === "permiso" ? "Permiso" : "Justificacion";
+  const hasJustificativo = Boolean(data.justificativo_path && data.justificativo_nombre);
+  const justificativoUrl = hasJustificativo
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/justificativos/${data.justificativo_path}`
+    : null;
+  const tipoLabel =
+    data.tipo === "permiso"
+      ? "Permiso"
+      : data.tipo === "justificacion"
+        ? "Justificacion"
+        : data.tipo === "viaje"
+          ? "Por viaje"
+          : data.tipo === "enfermedad"
+            ? "Por enfermedad"
+            : data.tipo === "calamidad_domestica"
+              ? "Calamidad domestica"
+              : data.tipo === "falta_marcado"
+                ? "Falta de marcado"
+                : data.tipo;
 
   return (
     <section className="stack">
@@ -65,9 +81,13 @@ export default async function SolicitudDetallePage({ params }: Readonly<{ params
           <div>
             <label>Justificativo</label>
             <div>
-              <a href={justificativoUrl} target="_blank" rel="noopener noreferrer">
-                {data.justificativo_nombre}
-              </a>
+              {hasJustificativo && justificativoUrl ? (
+                <a href={justificativoUrl} target="_blank" rel="noopener noreferrer">
+                  {data.justificativo_nombre}
+                </a>
+              ) : (
+                <span className="field-hint">—</span>
+              )}
             </div>
           </div>
           <div>

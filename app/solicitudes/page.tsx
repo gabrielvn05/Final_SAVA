@@ -6,7 +6,13 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 
 function labelTipo(tipo: string) {
-  return tipo === "permiso" ? "Permiso" : "Justificacion";
+  if (tipo === "permiso") return "Permiso";
+  if (tipo === "justificacion") return "Justificacion";
+  if (tipo === "viaje") return "Por viaje";
+  if (tipo === "enfermedad") return "Por enfermedad";
+  if (tipo === "calamidad_domestica") return "Calamidad domestica";
+  if (tipo === "falta_marcado") return "Falta de marcado";
+  return tipo;
 }
 
 export default async function SolicitudesPage() {
@@ -60,7 +66,7 @@ export default async function SolicitudesPage() {
                 </td>
                 <td><StatusBadge estado={s.estado} /></td>
                 <td><span className="text-truncate">{s.motivo}</span></td>
-                <td><span className="text-truncate">{s.justificativo_nombre}</span></td>
+                <td><span className="text-truncate">{s.justificativo_nombre || "-"}</span></td>
                 <td>
                   <div className="cell-actions">
                   <Link href={`/solicitudes/${s.id}`} className="btn btn--link btn--sm">Ver</Link>

@@ -24,6 +24,10 @@ export default async function NuevaSolicitudPage() {
             <label htmlFor="tipo">Tipo de tramite</label>
             <select id="tipo" name="tipo" required defaultValue="justificacion">
               <option value="justificacion">Justificacion</option>
+              <option value="viaje">Por viaje</option>
+              <option value="enfermedad">Por enfermedad</option>
+              <option value="calamidad_domestica">Calamidad domestica</option>
+              <option value="falta_marcado">Falta de marcado</option>
               <option value="permiso">Permiso</option>
             </select>
           </div>
@@ -43,8 +47,8 @@ export default async function NuevaSolicitudPage() {
           </div>
           <div>
             <label htmlFor="justificativo">Documento justificativo</label>
-            <input id="justificativo" className="file-input" name="justificativo" type="file" required />
-            <p className="field-hint">Formatos habituales: PDF, JPG o PNG.</p>
+            <input id="justificativo" className="file-input" name="justificativo" type="file" />
+            <p className="field-hint">Opcional. Formatos habituales: PDF, JPG o PNG.</p>
           </div>
           <button className="btn btn--primary" type="submit">
             Enviar a revision

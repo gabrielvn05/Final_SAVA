@@ -16,7 +16,14 @@ begin
     );
   end if;
   if not exists (select 1 from pg_type where typname = 'solicitud_tipo') then
-    create type solicitud_tipo as enum ('permiso', 'justificacion');
+    create type solicitud_tipo as enum (
+      'permiso',
+      'justificacion',
+      'viaje',
+      'enfermedad',
+      'calamidad_domestica',
+      'falta_marcado'
+    );
   end if;
   if not exists (select 1 from pg_type where typname = 'solicitud_estado') then
     create type solicitud_estado as enum (
@@ -94,11 +101,16 @@ create table if not exists public.account_requests (
   rol_solicitado app_role not null default 'administrativo',
   motivo text,
   status account_request_status not null default 'pendiente',
+  rechazo_comentario text,
   handled_by uuid references public.profiles(id),
   handled_at timestamptz,
   created_at timestamptz not null default now(),
   unique(email, status) deferrable initially immediate
 );
+
+-- Compatibilidad si la tabla ya existia en una version anterior.
+alter table public.account_requests
+  add column if not exists rechazo_comentario text;
 
 create table if not exists public.solicitudes (
   id uuid primary key default gen_random_uuid(),
@@ -107,8 +119,8 @@ create table if not exists public.solicitudes (
   fecha_inicio date not null,
   fecha_fin date not null,
   motivo text not null,
-  justificativo_path text not null,
-  justificativo_nombre text not null,
+  justificativo_path text,
+  justificativo_nombre text,
   estado solicitud_estado not null default 'en_revision_secretaria',
   revisado_por uuid references public.profiles(id),
   firmado_por uuid references public.profiles(id),
@@ -119,6 +131,51 @@ create table if not exists public.solicitudes (
   updated_at timestamptz not null default now(),
   constraint fecha_rango_valido check (fecha_fin >= fecha_inicio)
 );
+
+-- Hacer justificativo opcional (compatibilidad con versiones anteriores)
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'solicitudes'
+      and column_name = 'justificativo_path'
+      and is_nullable = 'NO'
+  ) then
+    alter table public.solicitudes alter column justificativo_path drop not null;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'solicitudes'
+      and column_name = 'justificativo_nombre'
+      and is_nullable = 'NO'
+  ) then
+    alter table public.solicitudes alter column justificativo_nombre drop not null;
+  end if;
+end $$;
+
+-- Extender enum de solicitud si la BD venia de una version anterior
+do $$
+begin
+  if exists (select 1 from pg_type where typname = 'solicitud_tipo') then
+    if not exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid where t.typname = 'solicitud_tipo' and e.enumlabel = 'viaje') then
+      alter type solicitud_tipo add value 'viaje';
+    end if;
+    if not exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid where t.typname = 'solicitud_tipo' and e.enumlabel = 'enfermedad') then
+      alter type solicitud_tipo add value 'enfermedad';
+    end if;
+    if not exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid where t.typname = 'solicitud_tipo' and e.enumlabel = 'calamidad_domestica') then
+      alter type solicitud_tipo add value 'calamidad_domestica';
+    end if;
+    if not exists (select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid where t.typname = 'solicitud_tipo' and e.enumlabel = 'falta_marcado') then
+      alter type solicitud_tipo add value 'falta_marcado';
+    end if;
+  end if;
+end $$;
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -192,14 +249,6 @@ alter table public.user_capabilities enable row level security;
 alter table public.solicitudes enable row level security;
 alter table public.account_requests enable row level security;
 
-create or replace function public.current_user_role()
-returns app_role
-language sql
-stable
-as $$
-  select rol from public.profiles where id = auth.uid()
-$$;
-
 create or replace function public.has_capability(cap capability_type)
 returns boolean
 language sql
@@ -219,9 +268,10 @@ as $$
 $$;
 
 drop policy if exists profiles_self_read on public.profiles;
-create policy profiles_self_read
+drop policy if exists profiles_select_authenticated on public.profiles;
+create policy profiles_select_authenticated
 on public.profiles for select
-using (id = auth.uid() or public.current_user_role() in ('decano', 'superusuario'));
+using (auth.role() = 'authenticated');
 
 drop policy if exists profiles_insert_own on public.profiles;
 create policy profiles_insert_own
@@ -251,15 +301,43 @@ on public.account_requests for insert
 with check (auth.role() in ('anon', 'authenticated'));
 
 drop policy if exists account_requests_select_decano on public.account_requests;
-create policy account_requests_select_decano
+drop policy if exists account_requests_select_roles on public.account_requests;
+create policy account_requests_select_roles
 on public.account_requests for select
-using (public.has_capability('gestionar_usuarios'));
+using (
+  exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.rol in ('decano', 'secretaria')
+  )
+);
 
 drop policy if exists account_requests_update_decano on public.account_requests;
 create policy account_requests_update_decano
 on public.account_requests for update
-using (public.has_capability('gestionar_usuarios'))
-with check (public.has_capability('gestionar_usuarios'));
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.rol = 'decano'
+  )
+)
+with check (
+  status in ('aprobada', 'rechazada')
+);
+
+drop policy if exists account_requests_update_secretaria_rechazo on public.account_requests;
+create policy account_requests_update_secretaria_rechazo
+on public.account_requests for update
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.rol = 'secretaria'
+  )
+)
+with check (
+  status = 'rechazada' and coalesce(rechazo_comentario, '') <> ''
+);
 
 drop policy if exists solicitudes_select_policy on public.solicitudes;
 create policy solicitudes_select_policy

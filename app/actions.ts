@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { hasCapability, requireAuth } from "@/lib/auth";
+import { getUserProfile, hasCapability, requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -20,15 +20,19 @@ export async function crearSolicitud(formData: FormData) {
   const supabase = createSupabaseServerClient();
   const archivo = formData.get("justificativo") as File | null;
 
-  if (!archivo || archivo.size === 0) {
-    throw new Error("Debes adjuntar el archivo justificativo.");
-  }
+  let justificativoPath: string | null = null;
+  let justificativoNombre: string | null = null;
 
-  const archivoPath = `${user.id}/${Date.now()}_${normalizeFileName(archivo.name)}`;
-  const { error: uploadError } = await supabase.storage.from("justificativos").upload(archivoPath, archivo, {
-    upsert: false
-  });
-  if (uploadError) throw new Error(uploadError.message);
+  // El justificativo es opcional (dependiendo del tipo de trámite).
+  if (archivo && archivo.size > 0) {
+    const archivoPath = `${user.id}/${Date.now()}_${normalizeFileName(archivo.name)}`;
+    const { error: uploadError } = await supabase.storage
+      .from("justificativos")
+      .upload(archivoPath, archivo, { upsert: false });
+    if (uploadError) throw new Error(uploadError.message);
+    justificativoPath = archivoPath;
+    justificativoNombre = archivo.name;
+  }
 
   const payload = {
     creado_por: user.id,
@@ -36,8 +40,8 @@ export async function crearSolicitud(formData: FormData) {
     fecha_inicio: getTextField(formData, "fecha_inicio"),
     fecha_fin: getTextField(formData, "fecha_fin"),
     motivo: getTextField(formData, "motivo"),
-    justificativo_path: archivoPath,
-    justificativo_nombre: archivo.name,
+    justificativo_path: justificativoPath,
+    justificativo_nombre: justificativoNombre,
     estado: "en_revision_secretaria"
   };
 
@@ -203,11 +207,14 @@ export async function solicitarCuenta(formData: FormData) {
   redirect("/login?solicitud=ok");
 }
 
-export async function aprobarSolicitudCuenta(requestId: string) {
+export async function aprobarSolicitudCuenta(formData: FormData) {
   const { user } = await requireAuth();
-  const puedeGestionar = await hasCapability(user.id, "gestionar_usuarios");
-  if (!puedeGestionar) throw new Error("Solo Decano puede aprobar solicitudes de cuenta.");
+  const profile = await getUserProfile(user.id);
+  if (profile.rol !== "decano" && profile.rol !== "superusuario") {
+    throw new Error("Solo Decano puede aprobar solicitudes de cuenta.");
+  }
 
+  const requestId = getTextField(formData, "request_id");
   const admin = createSupabaseAdminClient();
   const { data: req, error: reqErr } = await admin
     .from("account_requests")
@@ -218,7 +225,10 @@ export async function aprobarSolicitudCuenta(requestId: string) {
   if (reqErr || !req) throw new Error("No se encontro la solicitud.");
   if (req.status !== "pendiente") return;
 
-  const tempPassword = "SavaTemporal2026!";
+  const tempPassword = process.env.SEED_TEMP_PASSWORD;
+  if (!tempPassword) {
+    throw new Error("Falta SEED_TEMP_PASSWORD en el entorno (para crear cuentas temporales).");
+  }
   const { data, error } = await admin.auth.admin.createUser({
     email: req.email,
     password: tempPassword,
@@ -231,7 +241,6 @@ export async function aprobarSolicitudCuenta(requestId: string) {
   });
   if (error || !data.user) throw new Error(error?.message || "No se pudo crear usuario.");
 
-  // Perfil puede crearse por trigger auth.users, pero aseguramos por compatibilidad.
   await admin.from("profiles").upsert({
     id: data.user.id,
     email: req.email,
@@ -250,15 +259,28 @@ export async function aprobarSolicitudCuenta(requestId: string) {
   revalidatePath("/admin/solicitudes-cuenta");
 }
 
-export async function rechazarSolicitudCuenta(requestId: string) {
+export async function rechazarSolicitudCuenta(formData: FormData) {
   const { user } = await requireAuth();
-  const puedeGestionar = await hasCapability(user.id, "gestionar_usuarios");
-  if (!puedeGestionar) throw new Error("Solo Decano puede rechazar solicitudes de cuenta.");
+  const profile = await getUserProfile(user.id);
+  if (profile.rol !== "decano" && profile.rol !== "secretaria") {
+    throw new Error("No tienes permisos para rechazar solicitudes de cuenta.");
+  }
+
+  const requestId = getTextField(formData, "request_id");
+  const comentario = getTextField(formData, "comentario", "").trim();
+  if (profile.rol === "secretaria" && !comentario) {
+    throw new Error("Debes agregar un comentario al rechazar la solicitud.");
+  }
 
   const supabase = createSupabaseServerClient();
   const { error } = await supabase
     .from("account_requests")
-    .update({ status: "rechazada", handled_by: user.id, handled_at: new Date().toISOString() })
+    .update({
+      status: "rechazada",
+      rechazo_comentario: comentario || null,
+      handled_by: user.id,
+      handled_at: new Date().toISOString()
+    })
     .eq("id", requestId);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/solicitudes-cuenta");

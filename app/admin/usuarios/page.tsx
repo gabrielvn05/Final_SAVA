@@ -19,17 +19,25 @@ export default async function UsuariosPage() {
   }
 
   const supabase = createSupabaseServerClient();
-  const { data: usuarios } = await supabase
-    .from("profiles")
-    .select("id, nombres, apellidos, email, rol, activo")
-    .order("created_at", { ascending: false });
+  const [{ data: usuarios }, { count: pendientesCuenta = 0 }] = await Promise.all([
+    supabase.from("profiles").select("id, nombres, apellidos, email, rol, activo").order("created_at", { ascending: false }),
+    supabase.from("account_requests").select("*", { head: true, count: "exact" }).eq("status", "pendiente")
+  ]);
 
   return (
     <section className="stack">
       <PageHeader
         title="Administracion de usuarios"
-        subtitle="Alta de cuentas y delegacion de capacidades."
+        subtitle={`Alta de cuentas y delegacion de capacidades. Solicitudes de cuenta pendientes: ${pendientesCuenta}.`}
       />
+      <article className="card row" style={{ justifyContent: "space-between" }}>
+        <p className="field-hint" style={{ margin: 0 }}>
+          Las solicitudes enviadas desde login se aprueban en el modulo de solicitudes de cuenta.
+        </p>
+        <a href="/admin/solicitudes-cuenta" className="btn btn--secondary btn--sm">
+          Ir a solicitudes de cuenta
+        </a>
+      </article>
       <article className="card stack">
         <h2 style={{ margin: 0 }}>Nuevo usuario</h2>
         <form action={crearUsuarioInterno} className="stack">

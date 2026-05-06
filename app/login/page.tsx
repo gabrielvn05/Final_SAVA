@@ -27,15 +27,16 @@ type LoginPageProps = Readonly<{
 
 export default function LoginPage({ searchParams }: LoginPageProps) {
   const hasError = searchParams.error === "1";
+  const solicitudOk = searchParams.solicitud === "ok";
 
   return (
     <div className="login-page">
       <aside className="login-hero">
         <span className="login-hero__badge">Acceso institucional</span>
         <img
-          src="/branding/uleam-horizontal.png"
+          src="/branding/LOGO-ULEAM-hORIZONTAL.png"
           alt="ULEAM"
-          style={{ maxWidth: 240, width: "100%", height: "auto" }}
+          style={{ maxWidth: 340, width: "100%", height: "auto" }}
         />
         <h1>Gestion de permisos y justificaciones</h1>
         <p>Plataforma para registrar solicitudes, adjuntar justificativos y completar el flujo de firma.</p>
@@ -66,6 +67,11 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
               Solicitar cuenta
             </a>
           </div>
+          {solicitudOk ? (
+            <p className="field-hint" style={{ margin: "0.75rem 0 0" }}>
+              Solicitud enviada. El Decano revisara tu pedido.
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

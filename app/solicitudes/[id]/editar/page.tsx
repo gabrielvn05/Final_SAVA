@@ -43,6 +43,10 @@ export default async function EditarSolicitudPage({ params }: Readonly<{ params:
             <label htmlFor="tipo">Tipo de tramite</label>
             <select id="tipo" name="tipo" required defaultValue={data.tipo}>
               <option value="justificacion">Justificacion</option>
+              <option value="viaje">Por viaje</option>
+              <option value="enfermedad">Por enfermedad</option>
+              <option value="calamidad_domestica">Calamidad domestica</option>
+              <option value="falta_marcado">Falta de marcado</option>
               <option value="permiso">Permiso</option>
             </select>
           </div>
