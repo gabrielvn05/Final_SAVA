@@ -271,36 +271,97 @@ export async function aprobarSolicitudCuenta(formData: FormData) {
 
   if (reqErr || !req) throw new Error("No se encontro la solicitud.");
   if (req.status !== "pendiente") return;
+  const request = req;
 
   const tempPassword = generateTemporaryPassword(12);
   const { data, error } = await admin.auth.admin.createUser({
-    email: req.email,
+    email: request.email,
     password: tempPassword,
     email_confirm: true,
     user_metadata: {
-      nombres: req.nombres,
-      apellidos: req.apellidos,
-      rol: req.rol_solicitado,
+      nombres: request.nombres,
+      apellidos: request.apellidos,
+      rol: request.rol_solicitado,
       force_password_change: true
     }
   });
+  async function sendTempPasswordOrThrow() {
+    await sendTemporaryPasswordEmail({
+      to: request.email,
+      fullName: `${request.nombres} ${request.apellidos}`,
+      temporaryPassword: tempPassword
+    });
+  }
+
   // Si el correo ya existe en Auth, no explotamos la UI.
-  // Se considera resuelta por aprobación (la cuenta ya existe).
+  // Se resetea clave temporal, se fuerza cambio de contraseña y se aprueba.
   if (error && /already been registered|already registered|email address has already/i.test(error.message || "")) {
     const { data: existingProfile } = await admin
       .from("profiles")
       .select("id")
-      .eq("email", req.email)
+      .eq("email", request.email.trim().toLowerCase())
       .maybeSingle();
 
-    if (existingProfile?.id) {
-      await admin
-        .from("profiles")
-        .update({
-          rol: req.rol_solicitado,
-          activo: true
-        })
-        .eq("id", existingProfile.id);
+    let existingUserId = existingProfile?.id ?? null;
+
+    // Fallback: puede existir en Auth pero no en profiles (trigger previo ausente o migración antigua).
+    if (!existingUserId) {
+      let authUserId: string | null = null;
+      for (let page = 1; page <= 20 && !authUserId; page++) {
+        const { data: usersPage, error: usersErr } = await admin.auth.admin.listUsers({
+          page,
+          perPage: 100
+        });
+        if (usersErr) {
+          throw new Error(`No se pudo consultar usuarios en Auth: ${usersErr.message}`);
+        }
+        const match = usersPage.users.find((u) => (u.email ?? "").toLowerCase() === request.email.trim().toLowerCase());
+        if (match?.id) authUserId = match.id;
+        if (usersPage.users.length < 100) break;
+      }
+
+      if (!authUserId) {
+        throw new Error("El correo ya existe en Auth, pero no se pudo localizar su ID para reasignar clave temporal.");
+      }
+
+      existingUserId = authUserId;
+      // Si faltaba profile, lo creamos para mantener integridad de datos.
+      await admin.from("profiles").upsert({
+        id: existingUserId,
+        email: request.email.trim().toLowerCase(),
+        nombres: request.nombres,
+        apellidos: request.apellidos,
+        rol: request.rol_solicitado,
+        activo: true
+      });
+    }
+
+    const { error: resetErr } = await admin.auth.admin.updateUserById(existingUserId, {
+      password: tempPassword,
+      user_metadata: {
+        nombres: request.nombres,
+        apellidos: request.apellidos,
+        rol: request.rol_solicitado,
+        force_password_change: true
+      }
+    });
+    if (resetErr) throw new Error(`No se pudo actualizar clave temporal del usuario existente: ${resetErr.message}`);
+
+    await admin
+      .from("profiles")
+      .update({
+        nombres: request.nombres,
+        apellidos: request.apellidos,
+        rol: request.rol_solicitado,
+        activo: true
+      })
+      .eq("id", existingUserId);
+
+    try {
+      await sendTempPasswordOrThrow();
+    } catch (mailError) {
+      const message = mailError instanceof Error ? mailError.message : "No se pudo enviar correo.";
+      throw new Error(`No se pudo enviar el correo con la clave temporal: ${message}`);
     }
 
     const { error: updRegisteredErr } = await admin
@@ -321,19 +382,15 @@ export async function aprobarSolicitudCuenta(formData: FormData) {
 
   await admin.from("profiles").upsert({
     id: data.user.id,
-    email: req.email,
-    nombres: req.nombres,
-    apellidos: req.apellidos,
-    rol: req.rol_solicitado,
+    email: request.email,
+    nombres: request.nombres,
+    apellidos: request.apellidos,
+    rol: request.rol_solicitado,
     activo: true
   });
 
   try {
-    await sendTemporaryPasswordEmail({
-      to: req.email,
-      fullName: `${req.nombres} ${req.apellidos}`,
-      temporaryPassword: tempPassword
-    });
+    await sendTempPasswordOrThrow();
   } catch (mailError) {
     await admin.auth.admin.deleteUser(data.user.id);
     const message = mailError instanceof Error ? mailError.message : "No se pudo enviar correo.";

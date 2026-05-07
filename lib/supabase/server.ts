@@ -13,10 +13,21 @@ export function createSupabaseServerClient() {
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options: Record<string, unknown>) {
-          cookieStore.set(name, value, options);
+          // En Server Components (render), Next no permite mutar cookies.
+          // Supabase puede intentar refrescar sesión; ignoramos aquí y dejamos
+          // la persistencia para Server Actions / Route Handlers.
+          try {
+            cookieStore.set(name, value, options);
+          } catch {
+            // noop
+          }
         },
         remove(name: string, options: Record<string, unknown>) {
-          cookieStore.set(name, "", options);
+          try {
+            cookieStore.set(name, "", options);
+          } catch {
+            // noop
+          }
         }
       }
     }
