@@ -2,18 +2,19 @@ import { PageHeader } from "@/components/PageHeader";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserProfile, requireAuth } from "@/lib/auth";
 import { aprobarSolicitudCuenta, rechazarSolicitudCuenta } from "@/app/actions";
+import { unstable_noStore as noStore } from "next/cache";
 
 export default async function SolicitudesCuentaPage() {
+  noStore();
   const { user } = await requireAuth();
   const profile = await getUserProfile(user.id);
   const esDecano = profile.rol === "decano";
   const esSecretaria = profile.rol === "secretaria";
-  const esSuper = profile.rol === "superusuario";
 
-  if (!esDecano && !esSecretaria && !esSuper) {
+  if (!esDecano && !esSecretaria) {
     return (
       <section className="stack">
-        <PageHeader title="Solicitudes de cuenta" subtitle="Modulo reservado para Decano, Secretaria o Superusuario." />
+        <PageHeader title="Solicitudes de cuenta" subtitle="Modulo reservado para Decano y Secretaria." />
         <article className="card">
           <p>No tienes permiso para aprobar solicitudes.</p>
         </article>
@@ -21,11 +22,24 @@ export default async function SolicitudesCuentaPage() {
     );
   }
 
-  const selectColumns =
-    "id, email, nombres, apellidos, rol_solicitado, motivo, status, handled_by, handled_at, created_at";
-
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin.from("account_requests").select(selectColumns).order("created_at", { ascending: false });
+  const withComment = await admin
+    .from("account_requests")
+    .select("id, email, nombres, apellidos, rol_solicitado, motivo, status, rechazo_comentario, created_at")
+    .order("created_at", { ascending: false });
+  const fallback = await admin
+    .from("account_requests")
+    .select("id, email, nombres, apellidos, rol_solicitado, motivo, status, created_at")
+    .order("created_at", { ascending: false });
+  const [{ count: totalSolicitudes = 0 }, { count: pendientes = 0 }] = await Promise.all([
+    admin.from("account_requests").select("*", { head: true, count: "exact" }),
+    admin.from("account_requests").select("*", { head: true, count: "exact" }).eq("status", "pendiente")
+  ]);
+  const data =
+    (withComment.data && withComment.data.length > 0
+      ? withComment.data
+      : (fallback.data || []).map((r) => ({ ...r, rechazo_comentario: null }))) || [];
+  const error = withComment.error && fallback.error ? withComment.error : null;
 
   return (
     <section className="stack">
@@ -43,6 +57,14 @@ export default async function SolicitudesCuentaPage() {
               <code>sql/supabase-hotfix-rls-y-detalle.sql</code>.
             </div>
           </div>
+        </article>
+      ) : null}
+      {!error && data.length === 0 && totalSolicitudes > 0 ? (
+        <article className="card" style={{ borderLeft: "4px solid var(--color-warning)" }}>
+          <p className="field-hint" style={{ margin: 0 }}>
+            Se detectaron {totalSolicitudes} registros en BD ({pendientes} pendientes), pero no se renderizaron en esta
+            vista. Reinicia el servidor de Next.js y recarga con Ctrl+F5.
+          </p>
         </article>
       ) : null}
 
@@ -83,7 +105,7 @@ export default async function SolicitudesCuentaPage() {
                     <td>{r.status}</td>
                     <td>
                       {r.status === "rechazada" ? (
-                        <span className="text-truncate">Rechazada</span>
+                        <span className="text-truncate">{r.rechazo_comentario || "Rechazada sin comentario"}</span>
                       ) : (
                         <span className="field-hint">—</span>
                       )}
@@ -92,7 +114,7 @@ export default async function SolicitudesCuentaPage() {
                       <div className="cell-actions">
                         {r.status === "pendiente" ? (
                           <>
-                            {(esDecano || esSuper) ? (
+                            {esDecano ? (
                               <form action={aprobarSolicitudCuenta}>
                                 <input type="hidden" name="request_id" value={r.id} />
                                 <button className="btn btn--success btn--sm" type="submit">
@@ -101,7 +123,7 @@ export default async function SolicitudesCuentaPage() {
                               </form>
                             ) : null}
 
-                            {(esDecano || esSecretaria || esSuper) ? (
+                            {(esDecano || esSecretaria) ? (
                               <form action={rechazarSolicitudCuenta} className="stack" style={{ width: 220 }}>
                                 <input type="hidden" name="request_id" value={r.id} />
                                 <textarea

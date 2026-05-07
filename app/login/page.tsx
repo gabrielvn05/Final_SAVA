@@ -35,7 +35,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
       <aside className="login-hero">
         <span className="login-hero__badge">Acceso institucional</span>
         <img
-          src="/branding/LOGO-ULEAM-hORIZONTAL.png"
+        src="/branding/LOGO-ULEAM-HORIZONTAL.png"
           alt="ULEAM"
           style={{ maxWidth: 450, width: "100%", height: "auto" }}
         />

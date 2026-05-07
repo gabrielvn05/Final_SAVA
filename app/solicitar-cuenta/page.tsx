@@ -28,37 +28,46 @@ export default function SolicitarCuentaPage({ searchParams }: PageProps) {
   const mensaje = avisoText(avisoParam, detalleParam ? decodeURIComponent(detalleParam) : undefined);
 
   return (
-    <div className="solicitar-cuenta-page">
-      <div className="solicitar-cuenta-page__inner">
-        <PageHeader
-          title="Solicitar cuenta"
-          subtitle="Si trabajas o colaboras con la facultad y aún no tienes acceso, envía una solicitud. El Decanato la revisará y, si corresponde, se creará tu usuario."
-          actions={
-            <Link href="/login" className="btn btn--secondary">
-              Volver al login
-            </Link>
-          }
+    <div className="login-page">
+      <aside className="login-hero">
+        <span className="login-hero__badge">Acceso institucional</span>
+        <img
+        src="/branding/LOGO-ULEAM-HORIZONTAL.png"
+          alt="ULEAM"
+          style={{ maxWidth: 450, width: "100%", height: "auto" }}
         />
-
-        <p className="field-hint" style={{ margin: "-0.5rem 0 0" }}>
-          ¿Ya tienes cuenta?{" "}
-          <Link href="/login" style={{ fontWeight: 600 }}>
-            Inicia sesión aquí
-          </Link>
-          .
+        <h1>Solicitar cuenta</h1>
+        <p>
+          Si trabajas o colaboras con la facultad y aun no tienes acceso, envia tu solicitud. El Decanato la
+          revisara y si corresponde se creara tu usuario.
         </p>
+      </aside>
+      <div className="login-panel">
+        <div className="card stack" style={{ width: "100%", maxWidth: 760 }}>
+          <PageHeader
+            title="Datos de la solicitud"
+            subtitle="Usa un correo institucional valido para registrar tu pedido."
+            actions={
+              <Link href="/login" className="btn btn--secondary">
+                Volver al login
+              </Link>
+            }
+          />
 
-        {mensaje ? (
-          <div className="alert alert--warning" role="alert">
-            {mensaje}
-          </div>
-        ) : null}
-
-        <article className="card stack solicitar-cuenta-form">
-          <h2 className="solicitar-cuenta-form__title">Datos de la solicitud</h2>
-          <p className="field-hint" style={{ marginTop: 0 }}>
-            Usa un correo institucional válido. Recibirás acceso cuando un Decano apruebe la solicitud (puede asignarse una contraseña temporal).
+          <p className="field-hint" style={{ margin: "-0.5rem 0 0" }}>
+            ¿Ya tienes cuenta?{" "}
+            <Link href="/login" style={{ fontWeight: 600 }}>
+              Inicia sesion aqui
+            </Link>
+            .
           </p>
+
+          {mensaje ? (
+            <div className="alert alert--error" role="alert">
+              {mensaje}
+            </div>
+          ) : null}
+
           <form action={solicitarCuenta} className="stack">
             <div className="form-grid form-grid--2">
               <div>
@@ -92,11 +101,8 @@ export default function SolicitarCuentaPage({ searchParams }: PageProps) {
             <button className="btn btn--primary" type="submit" style={{ width: "100%", maxWidth: 320 }}>
               Enviar solicitud
             </button>
-            <p className="field-hint" style={{ marginBottom: 0 }}>
-              Al enviar, aceptas que los datos se usen solo para gestionar el acceso al sistema académico.
-            </p>
           </form>
-        </article>
+        </div>
       </div>
     </div>
   );

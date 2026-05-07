@@ -21,21 +21,23 @@ export function AppShell({ profile, userEmail, children }: AppShellProps) {
   const esSecretaria = profile.rol === "secretaria";
   const esSuper = profile.rol === "superusuario";
   const mostrarPill = !esSuper;
-  const puedeProceso = profile.rol === "secretaria" || profile.rol === "decano" || profile.rol === "superusuario";
-  const nav = [
-    { href: "/dashboard", label: "Inicio" },
-    { href: "/solicitudes", label: "Mis solicitudes" },
-    { href: "/solicitudes/nueva", label: "Nueva solicitud" },
-    ...(puedeProceso ? [{ href: "/solicitudes/proceso-aprobacion", label: "Proceso de aprobacion" }] : []),
-    ...((esDecano || esSuper) ? [{ href: "/admin/usuarios", label: "Usuarios" }] : []),
-    ...((esDecano || esSecretaria || esSuper) ? [{ href: "/admin/solicitudes-cuenta", label: "Solicitudes de cuenta" }] : [])
-  ] as const;
+  const puedeProceso = profile.rol === "secretaria" || profile.rol === "decano";
+  const nav = esSuper
+    ? []
+    : [
+        { href: "/dashboard", label: "Inicio" },
+        { href: "/solicitudes", label: "Mis solicitudes" },
+        { href: "/solicitudes/nueva", label: "Nueva solicitud" },
+        ...(puedeProceso ? [{ href: "/solicitudes/proceso-aprobacion", label: "Proceso de aprobacion" }] : []),
+        ...(esDecano ? [{ href: "/admin/usuarios", label: "Usuarios" }] : []),
+        ...((esDecano || esSecretaria) ? [{ href: "/admin/solicitudes-cuenta", label: "Solicitudes de cuenta" }] : [])
+      ] as const;
 
   return (
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar__brand">
-          <img src="/branding/LOGO-ULEAM.png" alt="ULEAM" style={{ height: 90, width: 120, borderRadius: 8 }} />
+          <img src="/branding/LOGO-ULEAM.png" alt="ULEAM" style={{ height: 56, width: "auto", borderRadius: 8 }} />
           <div className="topbar__titles">
             <span className="topbar__name">SAVA</span>
             <span className="topbar__tagline">Permisos y justificaciones</span>

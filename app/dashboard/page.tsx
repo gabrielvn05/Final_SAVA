@@ -3,18 +3,31 @@ import { getUserProfile, hasCapability, requireAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { unstable_noStore as noStore } from "next/cache";
 
 export default async function DashboardPage() {
+  noStore();
   const { user } = await requireAuth();
   const profile = await getUserProfile(user.id);
+  if (profile.rol === "superusuario") {
+    return (
+      <section className="stack">
+        <PageHeader title="Superusuario" subtitle="Cuenta de respaldo sin módulos operativos visibles." />
+        <article className="card">
+          <p className="field-hint" style={{ margin: 0 }}>
+            Este perfil se mantiene disponible solo para contingencias.
+          </p>
+        </article>
+      </section>
+    );
+  }
 
   const [puedeRevisar, puedeAprobar] = await Promise.all([
     hasCapability(user.id, "revisar_solicitudes"),
     hasCapability(user.id, "aprobar_solicitudes"),
   ]);
 
-  const esStaffInstitucional =
-    profile.rol === "secretaria" || profile.rol === "decano" || profile.rol === "superusuario";
+  const esStaffInstitucional = profile.rol === "secretaria" || profile.rol === "decano";
   const db = esStaffInstitucional ? createSupabaseAdminClient() : createSupabaseServerClient();
 
   const [
