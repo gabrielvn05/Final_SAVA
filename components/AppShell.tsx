@@ -1,19 +1,12 @@
 import Link from "next/link";
 import { ReactNode } from "react";
-import { getUserProfile } from "@/lib/auth";
+import type { UserProfile } from "@/lib/auth";
 
 type AppShellProps = Readonly<{
-  userId: string;
+  profile: UserProfile;
   userEmail: string | undefined;
   children: ReactNode;
 }>;
-
-const NAV = [
-  { href: "/dashboard", label: "Inicio" },
-  { href: "/solicitudes", label: "Solicitudes" },
-  { href: "/admin/usuarios", label: "Usuarios" },
-  { href: "/admin/solicitudes-cuenta", label: "Solicitudes de cuenta" }
-] as const;
 
 function etiquetaRol(rol: string) {
   if (rol === "superusuario") return "Superusuario";
@@ -22,17 +15,20 @@ function etiquetaRol(rol: string) {
   return "Administrativo";
 }
 
-export async function AppShell({ userId, userEmail, children }: AppShellProps) {
-  const profile = await getUserProfile(userId);
+export function AppShell({ profile, userEmail, children }: AppShellProps) {
   const rolLabel = etiquetaRol(profile.rol);
   const esDecano = profile.rol === "decano";
+  const esSecretaria = profile.rol === "secretaria";
   const esSuper = profile.rol === "superusuario";
   const mostrarPill = !esSuper;
+  const puedeProceso = profile.rol === "secretaria" || profile.rol === "decano" || profile.rol === "superusuario";
   const nav = [
     { href: "/dashboard", label: "Inicio" },
-    { href: "/solicitudes", label: "Solicitudes" },
-    ...(esDecano ? [{ href: "/admin/usuarios", label: "Usuarios" }] : []),
-    ...(esDecano ? [{ href: "/admin/solicitudes-cuenta", label: "Solicitudes de cuenta" }] : [])
+    { href: "/solicitudes", label: "Mis solicitudes" },
+    { href: "/solicitudes/nueva", label: "Nueva solicitud" },
+    ...(puedeProceso ? [{ href: "/solicitudes/proceso-aprobacion", label: "Proceso de aprobacion" }] : []),
+    ...((esDecano || esSuper) ? [{ href: "/admin/usuarios", label: "Usuarios" }] : []),
+    ...((esDecano || esSecretaria || esSuper) ? [{ href: "/admin/solicitudes-cuenta", label: "Solicitudes de cuenta" }] : [])
   ] as const;
 
   return (

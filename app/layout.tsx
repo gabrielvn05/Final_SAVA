@@ -1,6 +1,7 @@
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getUserProfile } from "@/lib/auth";
 import { ReactNode } from "react";
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
@@ -9,11 +10,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     data: { user }
   } = await supabase.auth.getUser();
 
+  const profile = user ? await getUserProfile(user.id) : null;
+
   return (
     <html lang="es">
       <body>
-        {user ? (
-          <AppShell userId={user.id} userEmail={user.email}>
+        {user && profile ? (
+          <AppShell profile={profile} userEmail={user.email}>
             {children}
           </AppShell>
         ) : (

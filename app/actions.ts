@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUserProfile, hasCapability, requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { validateFechaInicioMaxTresMeses } from "@/lib/fechas";
 
 function normalizeFileName(fileName: string) {
   return fileName.replaceAll(/[^a-zA-Z0-9.\-_]/g, "_");
@@ -45,6 +46,9 @@ export async function crearSolicitud(formData: FormData) {
     estado: "en_revision_secretaria"
   };
 
+  const fechaInicioError = validateFechaInicioMaxTresMeses(payload.fecha_inicio);
+  if (fechaInicioError) throw new Error(fechaInicioError);
+
   const { error } = await supabase.from("solicitudes").insert(payload);
   if (error) throw new Error(error.message);
 
@@ -55,6 +59,10 @@ export async function crearSolicitud(formData: FormData) {
 export async function actualizarSolicitud(id: string, formData: FormData) {
   const { user } = await requireAuth();
   const supabase = createSupabaseServerClient();
+
+  const fechaInicioValue = getTextField(formData, "fecha_inicio");
+  const fechaInicioError = validateFechaInicioMaxTresMeses(fechaInicioValue);
+  if (fechaInicioError) throw new Error(fechaInicioError);
 
   const { data: actual, error: actualError } = await supabase
     .from("solicitudes")
@@ -82,7 +90,7 @@ export async function actualizarSolicitud(id: string, formData: FormData) {
     .from("solicitudes")
     .update({
       tipo: getTextField(formData, "tipo", "justificacion"),
-      fecha_inicio: getTextField(formData, "fecha_inicio"),
+      fecha_inicio: fechaInicioValue,
       fecha_fin: getTextField(formData, "fecha_fin"),
       motivo: getTextField(formData, "motivo"),
       justificativo_path: justificativoPath,
@@ -102,8 +110,8 @@ export async function revisarSolicitud(id: string, observacion: string) {
   const puedeRevisar = await hasCapability(user.id, "revisar_solicitudes");
   if (!puedeRevisar) throw new Error("No tienes permisos para revisar.");
 
-  const supabase = createSupabaseServerClient();
-  const { error } = await supabase
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
     .from("solicitudes")
     .update({
       estado: "pendiente_aprobacion_decano",
@@ -114,6 +122,7 @@ export async function revisarSolicitud(id: string, observacion: string) {
 
   if (error) throw new Error(error.message);
   revalidatePath("/solicitudes");
+  revalidatePath("/solicitudes/proceso-aprobacion");
 }
 
 export async function firmarSolicitud(id: string, aprobado: boolean, observacion: string) {
@@ -121,8 +130,8 @@ export async function firmarSolicitud(id: string, aprobado: boolean, observacion
   const puedeAprobar = await hasCapability(user.id, "aprobar_solicitudes");
   if (!puedeAprobar) throw new Error("No tienes permisos para aprobar.");
 
-  const supabase = createSupabaseServerClient();
-  const { error } = await supabase
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin
     .from("solicitudes")
     .update({
       estado: aprobado ? "aprobada" : "rechazada",
@@ -134,6 +143,7 @@ export async function firmarSolicitud(id: string, aprobado: boolean, observacion
 
   if (error) throw new Error(error.message);
   revalidatePath("/solicitudes");
+  revalidatePath("/solicitudes/proceso-aprobacion");
 }
 
 export async function crearUsuarioInterno(formData: FormData) {
@@ -188,22 +198,52 @@ export async function delegarCapacidad(formData: FormData) {
 }
 
 export async function solicitarCuenta(formData: FormData) {
-  const supabase = createSupabaseServerClient();
-  const email = getTextField(formData, "email");
+  const rawEmail = getTextField(formData, "email").trim().toLowerCase();
   const nombres = getTextField(formData, "nombres");
   const apellidos = getTextField(formData, "apellidos");
   const rolSolicitado = getTextField(formData, "rol_solicitado", "administrativo");
   const motivo = getTextField(formData, "motivo");
 
+  if (!rawEmail) {
+    redirect("/solicitar-cuenta?aviso=correo_invalido");
+  }
+
+  const admin = createSupabaseAdminClient();
+
+  const { data: perfilExistente } = await admin.from("profiles").select("id").eq("email", rawEmail).maybeSingle();
+  if (perfilExistente) {
+    redirect("/solicitar-cuenta?aviso=usuario_existe");
+  }
+
+  const { data: pendiente } = await admin
+    .from("account_requests")
+    .select("id")
+    .eq("email", rawEmail)
+    .eq("status", "pendiente")
+    .maybeSingle();
+  if (pendiente) {
+    redirect("/solicitar-cuenta?aviso=solicitud_pendiente");
+  }
+
+  const supabase = createSupabaseServerClient();
   const { error } = await supabase.from("account_requests").insert({
-    email,
+    email: rawEmail,
     nombres,
     apellidos,
     rol_solicitado: rolSolicitado,
     motivo
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    const dup =
+      error.code === "23505" ||
+      /account_requests_email_status_key|duplicate key/i.test(error.message ?? "");
+    if (dup) {
+      redirect("/solicitar-cuenta?aviso=solicitud_pendiente");
+    }
+    redirect(`/solicitar-cuenta?aviso=error&detalle=${encodeURIComponent(error.message)}`);
+  }
+
   redirect("/login?solicitud=ok");
 }
 
@@ -262,7 +302,7 @@ export async function aprobarSolicitudCuenta(formData: FormData) {
 export async function rechazarSolicitudCuenta(formData: FormData) {
   const { user } = await requireAuth();
   const profile = await getUserProfile(user.id);
-  if (profile.rol !== "decano" && profile.rol !== "secretaria") {
+  if (profile.rol !== "decano" && profile.rol !== "secretaria" && profile.rol !== "superusuario") {
     throw new Error("No tienes permisos para rechazar solicitudes de cuenta.");
   }
 
@@ -284,4 +324,71 @@ export async function rechazarSolicitudCuenta(formData: FormData) {
     .eq("id", requestId);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/solicitudes-cuenta");
+}
+
+const TIPOS_JUSTIFICACION_WIZARD = new Set(["enfermedad", "viaje", "calamidad_domestica", "falta_marcado"]);
+
+export type CrearSolicitudWizardResult = { ok: true } | { ok: false; error: string };
+
+export async function crearSolicitudDesdeWizard(formData: FormData): Promise<CrearSolicitudWizardResult> {
+  try {
+    const { user } = await requireAuth();
+    const supabase = createSupabaseServerClient();
+
+    const tipo = getTextField(formData, "tipo");
+    if (!TIPOS_JUSTIFICACION_WIZARD.has(tipo)) {
+      return { ok: false, error: "Tipo de solicitud inválido." };
+    }
+
+    const fecha_inicio = getTextField(formData, "fecha_inicio");
+    const fecha_fin = getTextField(formData, "fecha_fin");
+    const motivo = getTextField(formData, "motivo");
+    const detalleJson = getTextField(formData, "detalle_json", "{}");
+
+    const fechaInicioError = validateFechaInicioMaxTresMeses(fecha_inicio);
+    if (fechaInicioError) return { ok: false, error: fechaInicioError };
+    if (!motivo.trim()) return { ok: false, error: "El motivo es obligatorio." };
+    if (!fecha_fin || fecha_fin < fecha_inicio) return { ok: false, error: "El rango de fechas no es válido." };
+
+    let detalle: Record<string, unknown> = {};
+    try {
+      detalle = JSON.parse(detalleJson) as Record<string, unknown>;
+    } catch {
+      return { ok: false, error: "No se pudo leer el detalle de la solicitud." };
+    }
+
+    const cert = formData.get("certificado_pdf") as File | null;
+    if (!cert || cert.size === 0) return { ok: false, error: "Debes adjuntar el certificado en PDF." };
+
+    const archivoPath = `${user.id}/${Date.now()}_${normalizeFileName(cert.name || "certificado.pdf")}`;
+    const { error: uploadError } = await supabase.storage.from("justificativos").upload(archivoPath, cert, { upsert: false });
+    if (uploadError) return { ok: false, error: uploadError.message };
+
+    const { error } = await supabase.from("solicitudes").insert({
+      creado_por: user.id,
+      tipo,
+      fecha_inicio,
+      fecha_fin,
+      motivo,
+      detalle,
+      justificativo_path: archivoPath,
+      justificativo_nombre: cert.name || "certificado.pdf",
+      estado: "en_revision_secretaria"
+    });
+
+    if (error) {
+      let msg = error.message;
+      if (/solicitud_tipo|invalid input value for enum/i.test(msg)) {
+        msg = `${msg} Actualiza el enum en Supabase ejecutando el script sql/fix-solicitud-tipo-enum.sql (o sql/supabase-hotfix-rls-y-detalle.sql).`;
+      }
+      return { ok: false, error: msg };
+    }
+
+    revalidatePath("/solicitudes");
+    revalidatePath("/solicitudes/proceso-aprobacion");
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "No se pudo crear la solicitud.";
+    return { ok: false, error: msg };
+  }
 }

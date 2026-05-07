@@ -119,6 +119,7 @@ create table if not exists public.solicitudes (
   fecha_inicio date not null,
   fecha_fin date not null,
   motivo text not null,
+  detalle jsonb not null default '{}'::jsonb,
   justificativo_path text,
   justificativo_nombre text,
   estado solicitud_estado not null default 'en_revision_secretaria',
@@ -131,6 +132,9 @@ create table if not exists public.solicitudes (
   updated_at timestamptz not null default now(),
   constraint fecha_rango_valido check (fecha_fin >= fecha_inicio)
 );
+
+alter table public.solicitudes
+  add column if not exists detalle jsonb not null default '{}'::jsonb;
 
 -- Hacer justificativo opcional (compatibilidad con versiones anteriores)
 do $$
@@ -249,10 +253,14 @@ alter table public.user_capabilities enable row level security;
 alter table public.solicitudes enable row level security;
 alter table public.account_requests enable row level security;
 
+-- SECURITY DEFINER: evita recursión infinita en RLS cuando policies de `user_capabilities`
+-- llaman a has_capability() y esa función a su vez consulta `user_capabilities`.
 create or replace function public.has_capability(cap capability_type)
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
   select exists (
     select 1
@@ -309,7 +317,7 @@ using (
     select 1
     from public.profiles p
     where p.id = auth.uid()
-      and p.rol in ('decano', 'secretaria')
+      and p.rol in ('decano', 'secretaria', 'superusuario')
   )
 );
 
@@ -319,7 +327,7 @@ on public.account_requests for update
 using (
   exists (
     select 1 from public.profiles p
-    where p.id = auth.uid() and p.rol = 'decano'
+    where p.id = auth.uid() and p.rol in ('decano', 'superusuario')
   )
 )
 with check (
@@ -342,7 +350,15 @@ with check (
 drop policy if exists solicitudes_select_policy on public.solicitudes;
 create policy solicitudes_select_policy
 on public.solicitudes for select
-using (auth.role() = 'authenticated');
+using (
+  creado_por = auth.uid()
+  or exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.rol in ('secretaria', 'decano', 'superusuario')
+  )
+);
 
 drop policy if exists solicitudes_insert_policy on public.solicitudes;
 create policy solicitudes_insert_policy
@@ -352,8 +368,24 @@ with check (creado_por = auth.uid());
 drop policy if exists solicitudes_update_policy on public.solicitudes;
 create policy solicitudes_update_policy
 on public.solicitudes for update
-using (auth.role() = 'authenticated')
-with check (auth.role() = 'authenticated');
+using (
+  creado_por = auth.uid()
+  or exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.rol in ('secretaria', 'decano', 'superusuario')
+  )
+)
+with check (
+  creado_por = auth.uid()
+  or exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and p.rol in ('secretaria', 'decano', 'superusuario')
+  )
+);
 
 -- Bucket para justificativos
 insert into storage.buckets (id, name, public)

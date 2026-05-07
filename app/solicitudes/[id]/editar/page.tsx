@@ -1,22 +1,28 @@
 import { actualizarSolicitud } from "@/app/actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireAuth } from "@/lib/auth";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getUserProfile, requireAuth } from "@/lib/auth";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
+import { isoDateUTC, threeMonthsAgoUTC } from "@/lib/fechas";
 
 type Params = { id: string };
 
 export default async function EditarSolicitudPage({ params }: Readonly<{ params: Params }>) {
-  await requireAuth();
-  const supabase = createSupabaseServerClient();
+  const { user } = await requireAuth();
+  const profile = await getUserProfile(user.id);
+  const esStaff =
+    profile.rol === "secretaria" || profile.rol === "decano" || profile.rol === "superusuario";
+  const db = esStaff ? createSupabaseAdminClient() : createSupabaseServerClient();
+  const minFechaInicio = isoDateUTC(threeMonthsAgoUTC());
 
-  const { data } = await supabase
+  const { data } = await db
     .from("solicitudes")
-    .select("id, tipo, fecha_inicio, fecha_fin, motivo, justificativo_nombre")
+    .select("id, tipo, fecha_inicio, fecha_fin, motivo, justificativo_nombre, creado_por")
     .eq("id", params.id)
     .single();
 
-  if (!data) {
+  if (!data || (!esStaff && data.creado_por !== user.id)) {
     return (
       <section className="card">
         <p>Solicitud no encontrada.</p>
@@ -53,7 +59,15 @@ export default async function EditarSolicitudPage({ params }: Readonly<{ params:
           <div className="form-grid form-grid--2">
             <div>
               <label htmlFor="fecha_inicio">Fecha inicio</label>
-              <input id="fecha_inicio" name="fecha_inicio" type="date" required defaultValue={data.fecha_inicio} />
+              <input
+                id="fecha_inicio"
+                name="fecha_inicio"
+                type="date"
+                required
+                min={minFechaInicio}
+                defaultValue={data.fecha_inicio}
+              />
+              <p className="field-hint">Máximo 3 meses hacia atrás (mínimo permitido: {minFechaInicio}).</p>
             </div>
             <div>
               <label htmlFor="fecha_fin">Fecha fin</label>

@@ -2,31 +2,35 @@ import Link from "next/link";
 import { getUserProfile, hasCapability, requireAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export default async function DashboardPage() {
   const { user } = await requireAuth();
   const profile = await getUserProfile(user.id);
-  const supabase = createSupabaseServerClient();
 
   const [puedeRevisar, puedeAprobar] = await Promise.all([
     hasCapability(user.id, "revisar_solicitudes"),
     hasCapability(user.id, "aprobar_solicitudes"),
   ]);
 
+  const esStaffInstitucional =
+    profile.rol === "secretaria" || profile.rol === "decano" || profile.rol === "superusuario";
+  const db = esStaffInstitucional ? createSupabaseAdminClient() : createSupabaseServerClient();
+
   const [
     { count: solicitudesPendientesFirma = 0 },
     { count: solicitudesPendientesSecretaria = 0 },
     { count: solicitudesCuentaPendientes = 0 }
   ] = await Promise.all([
-    supabase
+    db
       .from("solicitudes")
       .select("*", { head: true, count: "exact" })
       .eq("estado", "pendiente_aprobacion_decano"),
-    supabase
+    db
       .from("solicitudes")
       .select("*", { head: true, count: "exact" })
       .eq("estado", "en_revision_secretaria"),
-    supabase
+    db
       .from("account_requests")
       .select("*", { head: true, count: "exact" })
       .eq("status", "pendiente")
@@ -40,18 +44,23 @@ export default async function DashboardPage() {
       />
       <div className="dashboard-grid">
         <article className="card dashboard-tile stack">
-          <h2 style={{ margin: 0 }}>Solicitudes</h2>
-          <p className="field-hint">Consulta, crea y edita solicitudes con justificativo.</p>
-          <Link href="/solicitudes" className="btn btn--primary btn--sm" style={{ width: "fit-content" }}>
-            Ir a solicitudes
-          </Link>
+          <h2 style={{ margin: 0 }}>Mis solicitudes</h2>
+          <p className="field-hint">Consulta, crea y edita tus solicitudes y certificados.</p>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <Link href="/solicitudes" className="btn btn--secondary btn--sm" style={{ width: "fit-content" }}>
+              Ver mis solicitudes
+            </Link>
+            <Link href="/solicitudes/nueva" className="btn btn--primary btn--sm" style={{ width: "fit-content" }}>
+              Nueva solicitud
+            </Link>
+          </div>
         </article>
         {!Number.isNaN(solicitudesPendientesSecretaria) && profile.rol !== "superusuario" && puedeRevisar ? (
           <article className="card dashboard-tile stack" style={{ borderLeftColor: "var(--color-warning)" }}>
             <h2 style={{ margin: 0 }}>Revision (Secretaria)</h2>
             <p className="field-hint">Pendientes por revisar: {solicitudesPendientesSecretaria}</p>
-            <Link href="/solicitudes" className="btn btn--secondary btn--sm" style={{ width: "fit-content" }}>
-              Revisar ahora
+            <Link href="/solicitudes/proceso-aprobacion" className="btn btn--secondary btn--sm" style={{ width: "fit-content" }}>
+              Abrir proceso
             </Link>
           </article>
         ) : null}
@@ -59,7 +68,7 @@ export default async function DashboardPage() {
           <article className="card dashboard-tile stack" style={{ borderLeftColor: "var(--color-success)" }}>
             <h2 style={{ margin: 0 }}>Aprobacion y firma</h2>
             <p className="field-hint">Pendientes de firma: {solicitudesPendientesFirma}</p>
-            <Link href="/solicitudes" className="btn btn--secondary btn--sm" style={{ width: "fit-content" }}>
+            <Link href="/solicitudes/proceso-aprobacion" className="btn btn--secondary btn--sm" style={{ width: "fit-content" }}>
               Atender pendientes
             </Link>
           </article>

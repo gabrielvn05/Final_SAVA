@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireAuth } from "@/lib/auth";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getUserProfile, requireAuth } from "@/lib/auth";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -8,13 +9,16 @@ type Params = { id: string };
 
 export default async function SolicitudDetallePage({ params }: Readonly<{ params: Params }>) {
   const { id } = params;
-  await requireAuth();
-  const supabase = createSupabaseServerClient();
+  const { user } = await requireAuth();
+  const profile = await getUserProfile(user.id);
+  const esStaff =
+    profile.rol === "secretaria" || profile.rol === "decano" || profile.rol === "superusuario";
+  const db = esStaff ? createSupabaseAdminClient() : createSupabaseServerClient();
 
-  const { data } = await supabase
+  const { data } = await db
     .from("solicitudes")
     .select(
-      "id, tipo, estado, fecha_inicio, fecha_fin, motivo, observaciones_secretaria, observaciones_decano, justificativo_path, justificativo_nombre, created_at, fecha_firma"
+      "id, tipo, estado, fecha_inicio, fecha_fin, motivo, detalle, observaciones_secretaria, observaciones_decano, justificativo_path, justificativo_nombre, created_at, fecha_firma, creado_por"
     )
     .eq("id", id)
     .single();
@@ -53,10 +57,12 @@ export default async function SolicitudDetallePage({ params }: Readonly<{ params
         subtitle={`Referencia ${data.id.slice(0, 8)}...`}
         actions={
           <div className="row">
-            <Link href={`/solicitudes/${id}/editar`} className="btn btn--primary">
-              Editar
-            </Link>
-            <Link href="/solicitudes" className="btn btn--secondary">
+            {data.creado_por === user.id ? (
+              <Link href={`/solicitudes/${id}/editar`} className="btn btn--primary">
+                Editar
+              </Link>
+            ) : null}
+            <Link href={esStaff ? "/solicitudes/proceso-aprobacion" : "/solicitudes"} className="btn btn--secondary">
               Volver
             </Link>
           </div>
@@ -97,6 +103,16 @@ export default async function SolicitudDetallePage({ params }: Readonly<{ params
           <div className="motivo-box">
             <label>Motivo</label>
             <div>{data.motivo}</div>
+          </div>
+          <div className="motivo-box">
+            <label>Detalle estructurado</label>
+            <div>
+              {data.detalle && typeof data.detalle === "object" && data.detalle !== null && Object.keys(data.detalle as object).length > 0 ? (
+                <pre style={{ whiteSpace: "pre-wrap", margin: 0, fontSize: 12 }}>{JSON.stringify(data.detalle, null, 2)}</pre>
+              ) : (
+                <span className="field-hint">—</span>
+              )}
+            </div>
           </div>
           <div>
             <label>Observacion Secretaria</label>
