@@ -101,7 +101,7 @@ export default async function ProcesoAprobacionPage() {
                     </td>
                     <td>
                       <div className="cell-actions">
-                        <Link href={`/solicitudes/${s.id}`} className="btn btn--link btn--sm">
+                        <Link href={`/solicitudes/${s.id}`} className="btn btn--secondary btn--sm">
                           Ver
                         </Link>
                         {puedeRevisar && s.estado === "en_revision_secretaria" ? (

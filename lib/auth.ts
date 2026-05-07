@@ -17,6 +17,10 @@ export type UserProfile = {
   activo: boolean;
 };
 
+type RequireAuthOptions = {
+  skipPasswordChangeCheck?: boolean;
+};
+
 const ROLE_DEFAULT_CAPABILITIES: Record<AppRole, Capability[]> = {
   superusuario: ["gestionar_usuarios", "revisar_solicitudes", "aprobar_solicitudes", "generar_solicitudes"],
   decano: ["gestionar_usuarios", "revisar_solicitudes", "aprobar_solicitudes", "generar_solicitudes"],
@@ -24,7 +28,7 @@ const ROLE_DEFAULT_CAPABILITIES: Record<AppRole, Capability[]> = {
   administrativo: ["generar_solicitudes"]
 };
 
-export async function requireAuth() {
+export async function requireAuth(options: RequireAuthOptions = {}) {
   const supabase = createSupabaseServerClient();
   const {
     data: { user }
@@ -32,6 +36,10 @@ export async function requireAuth() {
 
   if (!user) {
     redirect("/login");
+  }
+
+  if (!options.skipPasswordChangeCheck && user.user_metadata?.force_password_change === true) {
+    redirect("/cambiar-clave");
   }
 
   return { supabase, user };

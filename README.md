@@ -30,6 +30,51 @@ Sistema web inicial con `Next.js` + `Supabase` para gestionar permisos/justifica
 5. Levanta el proyecto:
    - `npm run dev`
 
+## Variables de entorno
+
+Define estas variables en `.env.local` (puedes copiar desde `.env.example`):
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_APP_URL` (ej. `http://localhost:3000` en local)
+- `SMTP_HOST`
+- `SMTP_PORT` (ej. `587` o `465`)
+- `SMTP_USER`
+- `SMTP_PASS`
+- `SMTP_FROM` (ej. `SAVA <no-reply@tu-dominio.com>`)
+
+### ¿Cómo consigo cada una?
+
+#### Supabase
+
+1. Abre tu proyecto en Supabase.
+2. Ve a **Project Settings > API**.
+3. Copia:
+   - **Project URL** -> `NEXT_PUBLIC_SUPABASE_URL`
+   - **anon public key** -> `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - **service_role key** -> `SUPABASE_SERVICE_ROLE_KEY`
+
+#### SMTP (correo saliente)
+
+Necesitas un proveedor SMTP (Gmail Workspace, Outlook 365, Zoho, Brevo/Sendinblue, Mailgun, Resend SMTP, etc.).
+
+Con cualquier proveedor, pide estos datos en su panel:
+
+- servidor SMTP -> `SMTP_HOST`
+- puerto SMTP -> `SMTP_PORT`
+- usuario SMTP -> `SMTP_USER`
+- contraseña/API key SMTP -> `SMTP_PASS`
+- remitente autorizado -> `SMTP_FROM`
+
+Ejemplo típico:
+
+- `SMTP_HOST=smtp.office365.com`
+- `SMTP_PORT=587`
+- `SMTP_USER=no-reply@tudominio.com`
+- `SMTP_PASS=<clave>`
+- `SMTP_FROM="SAVA <no-reply@tudominio.com>"`
+
 ## Importante sobre creación de usuarios
 
 La acción de crear usuarios usa `SUPABASE_SERVICE_ROLE_KEY` desde backend (`lib/supabase/admin.ts`).  

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { crearUsuarioInterno, delegarCapacidad } from "@/app/actions";
 import { hasCapability, requireAuth } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -34,9 +35,9 @@ export default async function UsuariosPage() {
         <p className="field-hint" style={{ margin: 0 }}>
           Las solicitudes enviadas desde login se aprueban en el modulo de solicitudes de cuenta.
         </p>
-        <a href="/admin/solicitudes-cuenta" className="btn btn--secondary btn--sm">
+        <Link href="/admin/solicitudes-cuenta" className="btn btn--secondary btn--sm">
           Ir a solicitudes de cuenta
-        </a>
+        </Link>
       </article>
       <article className="card stack">
         <h2 style={{ margin: 0 }}>Nuevo usuario</h2>

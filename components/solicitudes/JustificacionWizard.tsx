@@ -352,25 +352,20 @@ export function JustificacionWizard() {
             Selecciona la opción que mejor describa tu caso. Esto define los campos del formulario y el texto del certificado PDF.
           </p>
 
-          <div className="form-grid form-grid--2">
+          <div className="wizard-tipo-grid">
             {TIPOS.map((t) => (
               <button
                 key={t.id}
                 type="button"
-                className={`card stack ${tipo === t.id ? "card--flat" : ""}`}
-                style={{
-                  textAlign: "left",
-                  cursor: "pointer",
-                  border: tipo === t.id ? "2px solid var(--color-accent)" : "1px solid var(--color-border)"
-                }}
+                className={`wizard-tipo-card ${tipo === t.id ? "wizard-tipo-card--active" : ""}`}
                 onClick={() => {
                   setTipo(t.id);
                   setF({});
                   setError(null);
                 }}
               >
-                <strong>{t.title}</strong>
-                <span className="field-hint">{t.description}</span>
+                <strong className="wizard-tipo-card__title">{t.title}</strong>
+                <span className="field-hint wizard-tipo-card__desc">{t.description}</span>
               </button>
             ))}
           </div>

@@ -66,8 +66,12 @@ export default async function SolicitudesPage() {
                 <td><span className="text-truncate">{s.justificativo_nombre || "-"}</span></td>
                 <td>
                   <div className="cell-actions">
-                  <Link href={`/solicitudes/${s.id}`} className="btn btn--link btn--sm">Ver</Link>
-                  <Link href={`/solicitudes/${s.id}/editar`} className="btn btn--link btn--sm">Editar</Link>
+                  <Link href={`/solicitudes/${s.id}`} className="btn btn--secondary btn--sm">
+                    Ver
+                  </Link>
+                  <Link href={`/solicitudes/${s.id}/editar`} className="btn btn--secondary btn--sm">
+                    Editar
+                  </Link>
                   </div>
                 </td>
               </tr>

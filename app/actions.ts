@@ -6,6 +6,7 @@ import { getUserProfile, hasCapability, requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { validateFechaInicioMaxTresMeses } from "@/lib/fechas";
+import { sendTemporaryPasswordEmail } from "@/lib/email";
 
 function normalizeFileName(fileName: string) {
   return fileName.replaceAll(/[^a-zA-Z0-9.\-_]/g, "_");
@@ -14,6 +15,12 @@ function normalizeFileName(fileName: string) {
 function getTextField(formData: FormData, field: string, fallback = "") {
   const value = formData.get(field);
   return typeof value === "string" ? value : fallback;
+}
+
+function generateTemporaryPassword(length = 12) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#$%";
+  const random = crypto.getRandomValues(new Uint32Array(length));
+  return Array.from(random, (n) => alphabet[n % alphabet.length]).join("");
 }
 
 export async function crearSolicitud(formData: FormData) {
@@ -265,10 +272,7 @@ export async function aprobarSolicitudCuenta(formData: FormData) {
   if (reqErr || !req) throw new Error("No se encontro la solicitud.");
   if (req.status !== "pendiente") return;
 
-  const tempPassword = process.env.SEED_TEMP_PASSWORD;
-  if (!tempPassword) {
-    throw new Error("Falta SEED_TEMP_PASSWORD en el entorno (para crear cuentas temporales).");
-  }
+  const tempPassword = generateTemporaryPassword(12);
   const { data, error } = await admin.auth.admin.createUser({
     email: req.email,
     password: tempPassword,
@@ -276,9 +280,43 @@ export async function aprobarSolicitudCuenta(formData: FormData) {
     user_metadata: {
       nombres: req.nombres,
       apellidos: req.apellidos,
-      rol: req.rol_solicitado
+      rol: req.rol_solicitado,
+      force_password_change: true
     }
   });
+  // Si el correo ya existe en Auth, no explotamos la UI.
+  // Se considera resuelta por aprobación (la cuenta ya existe).
+  if (error && /already been registered|already registered|email address has already/i.test(error.message || "")) {
+    const { data: existingProfile } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("email", req.email)
+      .maybeSingle();
+
+    if (existingProfile?.id) {
+      await admin
+        .from("profiles")
+        .update({
+          rol: req.rol_solicitado,
+          activo: true
+        })
+        .eq("id", existingProfile.id);
+    }
+
+    const { error: updRegisteredErr } = await admin
+      .from("account_requests")
+      .update({
+        status: "aprobada",
+        rechazo_comentario: null,
+        handled_by: user.id,
+        handled_at: new Date().toISOString()
+      })
+      .eq("id", requestId);
+    if (updRegisteredErr) throw new Error(updRegisteredErr.message);
+    revalidatePath("/admin/solicitudes-cuenta");
+    return;
+  }
+
   if (error || !data.user) throw new Error(error?.message || "No se pudo crear usuario.");
 
   await admin.from("profiles").upsert({
@@ -290,6 +328,18 @@ export async function aprobarSolicitudCuenta(formData: FormData) {
     activo: true
   });
 
+  try {
+    await sendTemporaryPasswordEmail({
+      to: req.email,
+      fullName: `${req.nombres} ${req.apellidos}`,
+      temporaryPassword: tempPassword
+    });
+  } catch (mailError) {
+    await admin.auth.admin.deleteUser(data.user.id);
+    const message = mailError instanceof Error ? mailError.message : "No se pudo enviar correo.";
+    throw new Error(`No se pudo enviar el correo con la clave temporal: ${message}`);
+  }
+
   const { error: updErr } = await admin
     .from("account_requests")
     .update({ status: "aprobada", handled_by: user.id, handled_at: new Date().toISOString() })
@@ -297,6 +347,33 @@ export async function aprobarSolicitudCuenta(formData: FormData) {
   if (updErr) throw new Error(updErr.message);
 
   revalidatePath("/admin/solicitudes-cuenta");
+}
+
+export async function cambiarClaveInicial(formData: FormData) {
+  const { supabase } = await requireAuth({ skipPasswordChangeCheck: true });
+  const newPassword = getTextField(formData, "new_password");
+  const confirmPassword = getTextField(formData, "confirm_password");
+
+  if (newPassword.length < 8) {
+    throw new Error("La nueva contraseña debe tener al menos 8 caracteres.");
+  }
+  if (newPassword !== confirmPassword) {
+    throw new Error("La confirmación de contraseña no coincide.");
+  }
+
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("No autenticado.");
+
+  const userMetadata = { ...(user.user_metadata ?? {}), force_password_change: false };
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword,
+    data: userMetadata
+  });
+  if (error) throw new Error(error.message);
+
+  redirect("/dashboard");
 }
 
 export async function rechazarSolicitudCuenta(formData: FormData) {

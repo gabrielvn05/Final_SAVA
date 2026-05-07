@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -36,42 +37,62 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
         <img
           src="/branding/LOGO-ULEAM-hORIZONTAL.png"
           alt="ULEAM"
-          style={{ maxWidth: 340, width: "100%", height: "auto" }}
+          style={{ maxWidth: 450, width: "100%", height: "auto" }}
         />
-        <h1>Gestion de permisos y justificaciones</h1>
-        <p>Plataforma para registrar solicitudes, adjuntar justificativos y completar el flujo de firma.</p>
+        <h1>Gestión de permisos y justificaciones</h1>
+        <p>Registra solicitudes, adjunta certificados y sigue el flujo de revisión y firma con tu facultad.</p>
       </aside>
       <div className="login-panel">
-        <div className="card stack" style={{ width: "100%", maxWidth: 400 }}>
-          <h2 style={{ margin: 0 }}>Iniciar sesion</h2>
+        <div className="card stack login-card">
+          <div>
+            <h2 style={{ margin: 0, fontSize: "1.35rem" }}>Iniciar sesión</h2>
+            <p className="field-hint" style={{ margin: "0.4rem 0 0" }}>
+              Usa el correo y contraseña que te asignó el sistema o tu unidad.
+            </p>
+          </div>
+
           {hasError ? (
             <div className="alert alert--error" role="alert">
-              Credenciales incorrectas o usuario sin perfil.
+              Credenciales incorrectas o usuario sin perfil. Si aún no tienes cuenta, puedes solicitarla abajo.
             </div>
           ) : null}
+
+          {solicitudOk ? (
+            <div className="alert alert--warning" role="status">
+              Solicitud enviada. El Decano revisará tu pedido; cuando sea aprobado podrás iniciar sesión con el correo indicado.
+            </div>
+          ) : null}
+
           <form action={login} className="stack">
             <div>
-              <label htmlFor="email">Correo</label>
-              <input id="email" name="email" type="email" placeholder="usuario@institucion.edu" required />
+              <label htmlFor="email">Correo institucional</label>
+              <input id="email" name="email" type="email" placeholder="usuario@institucion.edu" required autoComplete="email" />
             </div>
             <div>
-              <label htmlFor="password">Contrasena</label>
-              <input id="password" name="password" type="password" placeholder="********" required />
+              <label htmlFor="password">Contraseña</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+              />
             </div>
             <button className="btn btn--primary" type="submit" style={{ width: "100%" }}>
               Entrar al sistema
             </button>
           </form>
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <a className="btn btn--link btn--sm" href="/solicitar-cuenta">
+
+          <div className="login-signup-cta">
+            <p className="login-signup-cta__label">¿No tienes cuenta todavía?</p>
+            <Link href="/solicitar-cuenta" className="btn btn--secondary">
               Solicitar cuenta
-            </a>
-          </div>
-          {solicitudOk ? (
-            <p className="field-hint" style={{ margin: "0.75rem 0 0" }}>
-              Solicitud enviada. El Decano revisara tu pedido.
+            </Link>
+            <p className="field-hint" style={{ margin: "0.75rem 0 0", fontSize: "0.78rem" }}>
+              Solo personal autorizado. Tu solicitud será revisada por el Decanato.
             </p>
-          ) : null}
+          </div>
         </div>
       </div>
     </div>

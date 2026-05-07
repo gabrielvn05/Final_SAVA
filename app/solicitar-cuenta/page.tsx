@@ -28,62 +28,76 @@ export default function SolicitarCuentaPage({ searchParams }: PageProps) {
   const mensaje = avisoText(avisoParam, detalleParam ? decodeURIComponent(detalleParam) : undefined);
 
   return (
-    <section className="stack" style={{ maxWidth: 840, margin: "0 auto", padding: "1.5rem" }}>
-      <PageHeader
-        title="Solicitar cuenta"
-        subtitle="Completa el formulario. El Decano revisara y aprobara la creacion de tu usuario."
-        actions={
-          <Link href="/login" className="btn btn--secondary">
-            Volver al login
+    <div className="solicitar-cuenta-page">
+      <div className="solicitar-cuenta-page__inner">
+        <PageHeader
+          title="Solicitar cuenta"
+          subtitle="Si trabajas o colaboras con la facultad y aún no tienes acceso, envía una solicitud. El Decanato la revisará y, si corresponde, se creará tu usuario."
+          actions={
+            <Link href="/login" className="btn btn--secondary">
+              Volver al login
+            </Link>
+          }
+        />
+
+        <p className="field-hint" style={{ margin: "-0.5rem 0 0" }}>
+          ¿Ya tienes cuenta?{" "}
+          <Link href="/login" style={{ fontWeight: 600 }}>
+            Inicia sesión aquí
           </Link>
-        }
-      />
+          .
+        </p>
 
-      {mensaje ? (
-        <div className="alert alert--warning" role="alert">
-          {mensaje}
-        </div>
-      ) : null}
+        {mensaje ? (
+          <div className="alert alert--warning" role="alert">
+            {mensaje}
+          </div>
+        ) : null}
 
-      <article className="card stack">
-        <form action={solicitarCuenta} className="stack">
-          <div className="form-grid form-grid--2">
-            <div>
-              <label htmlFor="nombres">Nombres</label>
-              <input id="nombres" name="nombres" required />
-            </div>
-            <div>
-              <label htmlFor="apellidos">Apellidos</label>
-              <input id="apellidos" name="apellidos" required />
-            </div>
-          </div>
-          <div className="form-grid form-grid--2">
-            <div>
-              <label htmlFor="email">Correo</label>
-              <input id="email" name="email" type="email" placeholder="correo@institucion.edu" required />
-            </div>
-            <div>
-              <label htmlFor="rol_solicitado">Rol solicitado</label>
-              <select id="rol_solicitado" name="rol_solicitado" defaultValue="administrativo">
-                <option value="administrativo">Administrativo</option>
-                <option value="secretaria">Secretaria</option>
-                <option value="decano">Decano</option>
-                <option value="superusuario">Superusuario</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label htmlFor="motivo">Motivo / unidad</label>
-            <textarea id="motivo" name="motivo" rows={4} placeholder="Ej: Departamento, cargo, motivo de acceso..." />
-          </div>
-          <button className="btn btn--primary" type="submit">
-            Enviar solicitud
-          </button>
-          <p className="field-hint">
-            Nota: cuando el Decano apruebe, se creara tu cuenta y se asignara una contraseña temporal.
+        <article className="card stack solicitar-cuenta-form">
+          <h2 className="solicitar-cuenta-form__title">Datos de la solicitud</h2>
+          <p className="field-hint" style={{ marginTop: 0 }}>
+            Usa un correo institucional válido. Recibirás acceso cuando un Decano apruebe la solicitud (puede asignarse una contraseña temporal).
           </p>
-        </form>
-      </article>
-    </section>
+          <form action={solicitarCuenta} className="stack">
+            <div className="form-grid form-grid--2">
+              <div>
+                <label htmlFor="nombres">Nombres</label>
+                <input id="nombres" name="nombres" required autoComplete="given-name" />
+              </div>
+              <div>
+                <label htmlFor="apellidos">Apellidos</label>
+                <input id="apellidos" name="apellidos" required autoComplete="family-name" />
+              </div>
+            </div>
+            <div className="form-grid form-grid--2">
+              <div>
+                <label htmlFor="email">Correo institucional</label>
+                <input id="email" name="email" type="email" placeholder="correo@institucion.edu" required autoComplete="email" />
+              </div>
+              <div>
+                <label htmlFor="rol_solicitado">Rol solicitado</label>
+                <select id="rol_solicitado" name="rol_solicitado" defaultValue="administrativo">
+                  <option value="administrativo">Administrativo</option>
+                  <option value="secretaria">Secretaria</option>
+                  <option value="decano">Decano</option>
+                  <option value="superusuario">Superusuario</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="motivo">Motivo / unidad / cargo</label>
+              <textarea id="motivo" name="motivo" rows={4} placeholder="Ej: Departamento, cargo, motivo de acceso..." />
+            </div>
+            <button className="btn btn--primary" type="submit" style={{ width: "100%", maxWidth: 320 }}>
+              Enviar solicitud
+            </button>
+            <p className="field-hint" style={{ marginBottom: 0 }}>
+              Al enviar, aceptas que los datos se usen solo para gestionar el acceso al sistema académico.
+            </p>
+          </form>
+        </article>
+      </div>
+    </div>
   );
 }

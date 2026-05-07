@@ -35,7 +35,7 @@ export function AppShell({ profile, userEmail, children }: AppShellProps) {
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar__brand">
-          <img src="/branding/LOGO-ULEAM-VERTICAL.png" alt="ULEAM" style={{ height: 80, width: 100, borderRadius: 8 }} />
+          <img src="/branding/LOGO-ULEAM.png" alt="ULEAM" style={{ height: 90, width: 120, borderRadius: 8 }} />
           <div className="topbar__titles">
             <span className="topbar__name">SAVA</span>
             <span className="topbar__tagline">Permisos y justificaciones</span>
