@@ -2,16 +2,28 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
-import { StatusBadge } from "@/components/StatusBadge";
+import { MisSolicitudesFilterTable } from "@/components/solicitudes/MisSolicitudesFilterTable";
+import type { SolicitudListRow } from "@/lib/solicitudes-filters";
 
-function labelTipo(tipo: string) {
-  if (tipo === "permiso") return "Permiso";
-  if (tipo === "justificacion") return "Justificacion";
-  if (tipo === "viaje") return "Por viaje";
-  if (tipo === "enfermedad") return "Por enfermedad";
-  if (tipo === "calamidad_domestica") return "Calamidad domestica";
-  if (tipo === "falta_marcado") return "Falta de marcado";
-  return tipo;
+function normalizeRow(raw: Record<string, unknown>): SolicitudListRow {
+  let profiles = raw.profiles as SolicitudListRow["profiles"] | SolicitudListRow["profiles"][] | null | undefined;
+  if (Array.isArray(profiles)) {
+    profiles = profiles[0] ?? null;
+  }
+  const detalle = raw.detalle;
+  return {
+    id: String(raw.id),
+    creado_por: String(raw.creado_por ?? ""),
+    tipo: String(raw.tipo),
+    estado: String(raw.estado),
+    fecha_inicio: String(raw.fecha_inicio),
+    fecha_fin: String(raw.fecha_fin),
+    motivo: String(raw.motivo),
+    justificativo_nombre: raw.justificativo_nombre != null ? String(raw.justificativo_nombre) : null,
+    created_at: String(raw.created_at),
+    detalle: detalle && typeof detalle === "object" && !Array.isArray(detalle) ? (detalle as Record<string, unknown>) : null,
+    profiles: profiles ?? null
+  };
 }
 
 export default async function SolicitudesPage() {
@@ -20,9 +32,15 @@ export default async function SolicitudesPage() {
 
   const { data } = await supabase
     .from("solicitudes")
-    .select("id, tipo, estado, fecha_inicio, fecha_fin, motivo, justificativo_nombre, created_at")
+    .select(
+      "id, creado_por, tipo, estado, fecha_inicio, fecha_fin, motivo, justificativo_nombre, created_at, detalle, profiles(nombres, apellidos, email)"
+    )
     .eq("creado_por", user.id)
     .order("created_at", { ascending: false });
+
+  const rows: SolicitudListRow[] = (data || [])
+    .map((r) => normalizeRow(r as unknown as Record<string, unknown>))
+    .filter((r) => r.creado_por === user.id);
 
   return (
     <section className="stack">
@@ -35,51 +53,7 @@ export default async function SolicitudesPage() {
           </Link>
         }
       />
-      <article className="card card--flat">
-        <div className="table-wrap">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Tipo</th>
-              <th>Periodo</th>
-              <th>Estado</th>
-              <th>Motivo</th>
-              <th>Justificativo</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(data || []).length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
-                  No hay solicitudes registradas.
-                </td>
-              </tr>
-            ) : (data || []).map((s) => (
-              <tr key={s.id}>
-                <td>{labelTipo(s.tipo)}</td>
-                <td>
-                  {s.fecha_inicio} - {s.fecha_fin}
-                </td>
-                <td><StatusBadge estado={s.estado} /></td>
-                <td><span className="text-truncate">{s.motivo}</span></td>
-                <td><span className="text-truncate">{s.justificativo_nombre || "-"}</span></td>
-                <td>
-                  <div className="cell-actions">
-                  <Link href={`/solicitudes/${s.id}`} className="btn btn--secondary btn--sm">
-                    Ver
-                  </Link>
-                  <Link href={`/solicitudes/${s.id}/editar`} className="btn btn--secondary btn--sm">
-                    Editar
-                  </Link>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      </article>
+      <MisSolicitudesFilterTable rows={rows} currentUserId={user.id} />
     </section>
   );
 }

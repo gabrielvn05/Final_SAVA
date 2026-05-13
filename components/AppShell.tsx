@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { AppSidebar } from "@/components/AppSidebar";
+import { AppShellChrome } from "@/components/AppShellChrome";
 import type { SidebarNavItem } from "@/components/sidebar-nav-types";
 import type { AppRole, UserProfile } from "@/lib/auth";
 
@@ -55,47 +55,26 @@ export function AppShell({ profile, userEmail, children }: AppShellProps) {
   const rolLabel = etiquetaRol(profile.rol);
   const mostrarPill = profile.rol !== "superusuario";
   const sidebarItems = buildSidebarItems(profile.rol);
+  const userDisplayName = `${profile.nombres} ${profile.apellidos}`;
+  const userSubtitle = userEmail ?? profile.rol;
 
   return (
     <div className="app-shell">
-      <AppSidebar
-        items={sidebarItems}
-        userDisplayName={`${profile.nombres} ${profile.apellidos}`}
-        userEmail={userEmail ?? undefined}
+      <AppShellChrome
+        sidebarItems={sidebarItems}
+        userDisplayName={userDisplayName}
+        userSubtitle={userSubtitle}
         rolLabel={rolLabel}
         mostrarPill={mostrarPill}
-      />
-
-      <header className="topbar topbar--light">
-        <div className="topbar__brand">
-          <img
-            className="topbar__logo-img"
-            src="/branding/LOGO-ULEAM.png"
-            alt="Universidad Laica Eloy Alfaro de Manabí"
-          />
-          <div className="topbar__titles">
-            <span className="topbar__name">SAVA</span>
-            <span className="topbar__tagline">Permisos y justificaciones</span>
-          </div>
+        logoSrc="/branding/LOGO-ULEAM.png"
+      >
+        <div className="app-shell__body">
+          <main className="app-main">{children}</main>
+          <footer className="app-footer">
+            <span>Sistema academico - Modulo de tramites</span>
+          </footer>
         </div>
-
-        <div className="topbar__user">
-          <div className="topbar__user-meta">
-            <span className="topbar__user-name">
-              {profile.nombres} {profile.apellidos}
-            </span>
-            <span className="topbar__user-email">{userEmail ?? profile.rol}</span>
-            {mostrarPill ? <span className="topbar__pill">{rolLabel}</span> : null}
-          </div>
-        </div>
-      </header>
-
-      <div className="app-shell__body">
-        <main className="app-main">{children}</main>
-        <footer className="app-footer">
-          <span>Sistema academico - Modulo de tramites</span>
-        </footer>
-      </div>
+      </AppShellChrome>
     </div>
   );
 }

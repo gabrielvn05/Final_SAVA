@@ -55,7 +55,6 @@ a:hover {
   gap: 1rem;
   flex-wrap: wrap;
   padding: 0.75rem 1.5rem;
-  padding-left: 4rem;
   background: linear-gradient(135deg, var(--color-primary) 0%, #0a2854 100%);
   color: #fff;
 }
@@ -93,10 +92,20 @@ a:hover {
   display: block;
 }
 
+.topbar__start {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
 .topbar__brand {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .topbar__logo {
@@ -181,10 +190,7 @@ html.sidebar-open {
 }
 
 .sidebar-toggle {
-  position: fixed;
-  top: 1rem;
-  left: calc((4rem - 2.5rem) / 2);
-  z-index: 1100;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -460,6 +466,23 @@ html.sidebar-open {
   justify-content: flex-end;
   gap: 0.65rem;
   flex-wrap: wrap;
+}
+
+.solicitud-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.85rem 1rem;
+  align-items: end;
+}
+
+.solicitud-filters__span2 {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 720px) {
+  .solicitud-filters__span2 {
+    grid-column: span 2;
+  }
 }
 
 .app-shell__body {

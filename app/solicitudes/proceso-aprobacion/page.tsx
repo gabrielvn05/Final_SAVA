@@ -2,22 +2,33 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserProfile, hasCapability, requireAuth } from "@/lib/auth";
-import { firmarSolicitud, revisarSolicitud } from "@/app/actions";
 import { PageHeader } from "@/components/PageHeader";
-import { StatusBadge } from "@/components/StatusBadge";
-
-function labelTipo(tipo: string) {
-  if (tipo === "permiso") return "Permiso";
-  if (tipo === "justificacion") return "Justificacion";
-  if (tipo === "viaje") return "Por viaje";
-  if (tipo === "enfermedad") return "Por enfermedad";
-  if (tipo === "calamidad_domestica") return "Calamidad domestica";
-  if (tipo === "falta_marcado") return "Falta de marcado";
-  return tipo;
-}
+import { ProcesoSolicitudesFilterTable } from "@/components/solicitudes/ProcesoSolicitudesFilterTable";
+import type { SolicitudListRow } from "@/lib/solicitudes-filters";
 
 function puedeAccederProceso(rol: string) {
   return rol === "secretaria" || rol === "decano" || rol === "superusuario";
+}
+
+function normalizeRow(raw: Record<string, unknown>): SolicitudListRow {
+  let profiles = raw.profiles as SolicitudListRow["profiles"] | SolicitudListRow["profiles"][] | null | undefined;
+  if (Array.isArray(profiles)) {
+    profiles = profiles[0] ?? null;
+  }
+  const detalle = raw.detalle;
+  return {
+    id: String(raw.id),
+    creado_por: String(raw.creado_por ?? ""),
+    tipo: String(raw.tipo),
+    estado: String(raw.estado),
+    fecha_inicio: String(raw.fecha_inicio),
+    fecha_fin: String(raw.fecha_fin),
+    motivo: String(raw.motivo),
+    justificativo_nombre: raw.justificativo_nombre != null ? String(raw.justificativo_nombre) : null,
+    created_at: String(raw.created_at),
+    detalle: detalle && typeof detalle === "object" && !Array.isArray(detalle) ? (detalle as Record<string, unknown>) : null,
+    profiles: profiles ?? null
+  };
 }
 
 export default async function ProcesoAprobacionPage() {
@@ -30,13 +41,15 @@ export default async function ProcesoAprobacionPage() {
   const puedeRevisar = await hasCapability(user.id, "revisar_solicitudes");
   const puedeAprobar = await hasCapability(user.id, "aprobar_solicitudes");
 
-  // Lista global: el cliente con anon key puede quedar sin filas si la policy RLS en Supabase no coincide
-  // con el rol real (p. ej. schema viejo). Service role solo tras verificar rol en servidor.
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("solicitudes")
-    .select("id, tipo, estado, fecha_inicio, fecha_fin, motivo, justificativo_nombre, created_at")
+    .select(
+      "id, creado_por, tipo, estado, fecha_inicio, fecha_fin, motivo, justificativo_nombre, created_at, detalle, profiles(nombres, apellidos, email)"
+    )
     .order("created_at", { ascending: false });
+
+  const rows: SolicitudListRow[] = (data || []).map((r) => normalizeRow(r as unknown as Record<string, unknown>));
 
   return (
     <section className="stack">
@@ -63,92 +76,7 @@ export default async function ProcesoAprobacionPage() {
         </article>
       ) : null}
 
-      <article className="card card--flat">
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Tipo</th>
-                <th>Periodo</th>
-                <th>Estado</th>
-                <th>Motivo</th>
-                <th>Justificativo</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data || []).length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: "center", color: "var(--color-text-muted)" }}>
-                    No hay solicitudes registradas.
-                  </td>
-                </tr>
-              ) : (
-                (data || []).map((s) => (
-                  <tr key={s.id}>
-                    <td>{labelTipo(s.tipo)}</td>
-                    <td>
-                      {s.fecha_inicio} - {s.fecha_fin}
-                    </td>
-                    <td>
-                      <StatusBadge estado={s.estado} />
-                    </td>
-                    <td>
-                      <span className="text-truncate">{s.motivo}</span>
-                    </td>
-                    <td>
-                      <span className="text-truncate">{s.justificativo_nombre || "-"}</span>
-                    </td>
-                    <td>
-                      <div className="cell-actions">
-                        <Link href={`/solicitudes/${s.id}`} className="btn btn--secondary btn--sm">
-                          Ver
-                        </Link>
-                        {puedeRevisar && s.estado === "en_revision_secretaria" ? (
-                          <form
-                            action={async () => {
-                              "use server";
-                              await revisarSolicitud(s.id, "Revisado por secretaría.");
-                            }}
-                          >
-                            <button className="btn btn--secondary btn--sm" type="submit">
-                              Enviar a Decano
-                            </button>
-                          </form>
-                        ) : null}
-                        {puedeAprobar && s.estado === "pendiente_aprobacion_decano" ? (
-                          <>
-                            <form
-                              action={async () => {
-                                "use server";
-                                await firmarSolicitud(s.id, true, "Aprobado y firmado por Decano.");
-                              }}
-                            >
-                              <button className="btn btn--success btn--sm" type="submit">
-                                Aprobar
-                              </button>
-                            </form>
-                            <form
-                              action={async () => {
-                                "use server";
-                                await firmarSolicitud(s.id, false, "Rechazado por Decano.");
-                              }}
-                            >
-                              <button className="btn btn--danger btn--sm" type="submit">
-                                Rechazar
-                              </button>
-                            </form>
-                          </>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </article>
+      <ProcesoSolicitudesFilterTable rows={rows} puedeRevisar={puedeRevisar} puedeAprobar={puedeAprobar} />
     </section>
   );
 }
