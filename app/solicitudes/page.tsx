@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { unstable_noStore as noStore } from "next/cache";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { MisSolicitudesFilterTable } from "@/components/solicitudes/MisSolicitudesFilterTable";
@@ -27,13 +28,19 @@ function normalizeRow(raw: Record<string, unknown>): SolicitudListRow {
 }
 
 export default async function SolicitudesPage() {
+  noStore();
   const { user } = await requireAuth();
-  const supabase = createSupabaseServerClient();
 
-  const { data } = await supabase
+  // Con la sesión anon, la política RLS de SELECT en `solicitudes` puede disparar lecturas a `profiles`
+  // que en algunas configuraciones terminan en recursión Postgres ("stack depth limit exceeded").
+  // Aquí sólo debe mostrarse lo creado por el usuario actual: después de authenticar usamos admin y
+  // filtro estricto `creado_por = user.id` (igual seguridad funcional que RLS sobre filas propias).
+  const admin = createSupabaseAdminClient();
+
+  const { data, error } = await admin
     .from("solicitudes")
     .select(
-      "id, creado_por, tipo, estado, fecha_inicio, fecha_fin, motivo, justificativo_nombre, created_at, detalle, profiles(nombres, apellidos, email)"
+      "id, creado_por, tipo, estado, fecha_inicio, fecha_fin, motivo, justificativo_nombre, created_at, detalle"
     )
     .eq("creado_por", user.id)
     .order("created_at", { ascending: false });
@@ -53,7 +60,14 @@ export default async function SolicitudesPage() {
           </Link>
         }
       />
-      <MisSolicitudesFilterTable rows={rows} currentUserId={user.id} />
+      {error ? (
+        <article className="card">
+          <div className="alert alert--error" role="alert">
+            No se pudieron cargar tus solicitudes: {error.message}
+          </div>
+        </article>
+      ) : null}
+      <MisSolicitudesFilterTable rows={rows} />
     </section>
   );
 }

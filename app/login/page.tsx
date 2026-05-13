@@ -39,8 +39,8 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
           alt="ULEAM"
           style={{ maxWidth: 450, width: "100%", height: "auto" }}
         />
-        <h1>Gestión de permisos y justificaciones</h1>
-        <p>Registra solicitudes, adjunta certificados y sigue el flujo de revisión y firma con tu facultad.</p>
+        <h1> Sistema de Asistencia y Validaciones Académicas (SAVA)</h1>
+        <p>Gestión de permisos y justificaciones</p>
       </aside>
       <div className="login-panel">
         <div className="card stack login-card">

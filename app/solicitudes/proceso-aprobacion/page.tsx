@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserProfile, hasCapability, requireAuth } from "@/lib/auth";
@@ -32,6 +33,7 @@ function normalizeRow(raw: Record<string, unknown>): SolicitudListRow {
 }
 
 export default async function ProcesoAprobacionPage() {
+  noStore();
   const { user } = await requireAuth();
   const profile = await getUserProfile(user.id);
   if (!puedeAccederProceso(profile.rol)) {
@@ -45,7 +47,7 @@ export default async function ProcesoAprobacionPage() {
   const { data, error } = await admin
     .from("solicitudes")
     .select(
-      "id, creado_por, tipo, estado, fecha_inicio, fecha_fin, motivo, justificativo_nombre, created_at, detalle, profiles(nombres, apellidos, email)"
+      "id, creado_por, tipo, estado, fecha_inicio, fecha_fin, motivo, justificativo_nombre, created_at, detalle, profiles!solicitudes_creado_por_fkey(nombres, apellidos, email)"
     )
     .order("created_at", { ascending: false });
 

@@ -20,18 +20,10 @@ function emptyFilters(): SolicitudFiltros {
   return { nombre: "", facultad: "", fechaDesde: "", fechaHasta: "", estado: "" };
 }
 
-export function MisSolicitudesFilterTable({
-  rows,
-  currentUserId
-}: Readonly<{ rows: SolicitudListRow[]; currentUserId: string }>) {
+export function MisSolicitudesFilterTable({ rows }: Readonly<{ rows: SolicitudListRow[] }>) {
   const [f, setF] = useState<SolicitudFiltros>(emptyFilters);
 
-  const ownRows = useMemo(
-    () => rows.filter((r) => r.creado_por === currentUserId),
-    [rows, currentUserId]
-  );
-
-  const filtered = useMemo(() => ownRows.filter((r) => rowMatchesSolicitudFilters(r, f)), [ownRows, f]);
+  const filtered = useMemo(() => rows.filter((r) => rowMatchesSolicitudFilters(r, f)), [rows, f]);
 
   return (
     <>
@@ -92,7 +84,7 @@ export function MisSolicitudesFilterTable({
           </div>
         </div>
         <p className="field-hint" style={{ marginTop: "0.75rem", marginBottom: 0 }}>
-          Mostrando {filtered.length} de {ownRows.length} solicitudes. La facultad se toma del campo en el detalle
+          Mostrando {filtered.length} de {rows.length} solicitudes. La facultad se toma del campo en el detalle
           (facultad, unidad, etc.) si existe.
         </p>
       </article>
