@@ -1,12 +1,48 @@
-import Link from "next/link";
 import { ReactNode } from "react";
-import type { UserProfile } from "@/lib/auth";
+import { AppSidebar } from "@/components/AppSidebar";
+import type { SidebarNavItem } from "@/components/sidebar-nav-types";
+import type { AppRole, UserProfile } from "@/lib/auth";
 
 type AppShellProps = Readonly<{
   profile: UserProfile;
   userEmail: string | undefined;
   children: ReactNode;
 }>;
+
+function buildSidebarItems(rol: AppRole): SidebarNavItem[] {
+  const esDecano = rol === "decano";
+  const esSecretaria = rol === "secretaria";
+  const esSuper = rol === "superusuario";
+  const puedeProceso = rol === "secretaria" || rol === "decano";
+
+  if (esSuper) {
+    return [{ type: "link", href: "/dashboard", label: "Inicio" }];
+  }
+
+  const items: SidebarNavItem[] = [
+    { type: "link", href: "/dashboard", label: "Inicio" },
+    {
+      type: "group",
+      label: "Solicitudes",
+      items: [
+        { href: "/solicitudes/nueva", label: "Nuevas solicitudes" },
+        { href: "/solicitudes", label: "Mis solicitudes" }
+      ]
+    }
+  ];
+
+  if (puedeProceso) {
+    items.push({ type: "link", href: "/solicitudes/proceso-aprobacion", label: "Proceso de aprobación" });
+  }
+  if (esDecano) {
+    items.push({ type: "link", href: "/admin/usuarios", label: "Usuarios" });
+  }
+  if (esDecano || esSecretaria) {
+    items.push({ type: "link", href: "/admin/solicitudes-cuenta", label: "Solicitudes de cuenta" });
+  }
+
+  return items;
+}
 
 function etiquetaRol(rol: string) {
   if (rol === "superusuario") return "Superusuario";
@@ -17,40 +53,31 @@ function etiquetaRol(rol: string) {
 
 export function AppShell({ profile, userEmail, children }: AppShellProps) {
   const rolLabel = etiquetaRol(profile.rol);
-  const esDecano = profile.rol === "decano";
-  const esSecretaria = profile.rol === "secretaria";
-  const esSuper = profile.rol === "superusuario";
-  const mostrarPill = !esSuper;
-  const puedeProceso = profile.rol === "secretaria" || profile.rol === "decano";
-  const nav = esSuper
-    ? []
-    : [
-        { href: "/dashboard", label: "Inicio" },
-        { href: "/solicitudes", label: "Mis solicitudes" },
-        { href: "/solicitudes/nueva", label: "Nueva solicitud" },
-        ...(puedeProceso ? [{ href: "/solicitudes/proceso-aprobacion", label: "Proceso de aprobacion" }] : []),
-        ...(esDecano ? [{ href: "/admin/usuarios", label: "Usuarios" }] : []),
-        ...((esDecano || esSecretaria) ? [{ href: "/admin/solicitudes-cuenta", label: "Solicitudes de cuenta" }] : [])
-      ] as const;
+  const mostrarPill = profile.rol !== "superusuario";
+  const sidebarItems = buildSidebarItems(profile.rol);
 
   return (
     <div className="app-shell">
-      <header className="topbar">
+      <AppSidebar
+        items={sidebarItems}
+        userDisplayName={`${profile.nombres} ${profile.apellidos}`}
+        userEmail={userEmail ?? undefined}
+        rolLabel={rolLabel}
+        mostrarPill={mostrarPill}
+      />
+
+      <header className="topbar topbar--light">
         <div className="topbar__brand">
-          <img src="/branding/LOGO-ULEAM.png" alt="ULEAM" style={{ height: 56, width: "auto", borderRadius: 8 }} />
+          <img
+            className="topbar__logo-img"
+            src="/branding/LOGO-ULEAM.png"
+            alt="Universidad Laica Eloy Alfaro de Manabí"
+          />
           <div className="topbar__titles">
             <span className="topbar__name">SAVA</span>
             <span className="topbar__tagline">Permisos y justificaciones</span>
           </div>
         </div>
-
-        <nav className="topbar__nav" aria-label="Principal">
-          {nav.map((item) => (
-            <Link key={item.href} href={item.href} className="topbar__link">
-              {item.label}
-            </Link>
-          ))}
-        </nav>
 
         <div className="topbar__user">
           <div className="topbar__user-meta">
@@ -60,11 +87,6 @@ export function AppShell({ profile, userEmail, children }: AppShellProps) {
             <span className="topbar__user-email">{userEmail ?? profile.rol}</span>
             {mostrarPill ? <span className="topbar__pill">{rolLabel}</span> : null}
           </div>
-          <form action="/logout" method="post">
-            <button className="btn btn--ghost" type="submit">
-              Salir
-            </button>
-          </form>
         </div>
       </header>
 

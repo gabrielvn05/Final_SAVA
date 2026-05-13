@@ -6,11 +6,17 @@ import { ReactNode } from "react";
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   const supabase = createSupabaseServerClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const { data, error: authError } = await supabase.auth.getUser();
+  const user = data.user && !authError ? data.user : null;
 
-  const profile = user ? await getUserProfile(user.id) : null;
+  let profile = null;
+  if (user) {
+    try {
+      profile = await getUserProfile(user.id);
+    } catch {
+      profile = null;
+    }
+  }
 
   return (
     <html lang="es">
