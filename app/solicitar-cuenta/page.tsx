@@ -41,6 +41,7 @@ export default function SolicitarCuentaPage({ searchParams }: PageProps) {
           Si trabajas o colaboras con la facultad y aun no tienes acceso, envia tu solicitud. El Decanato la
           revisara y si corresponde se creara tu usuario.
         </p>
+        <p>Elaborado por Anchundia Liliana, Baque victor, Velez Gabriel, Zamora Miguel</p>
       </aside>
       <div className="login-panel">
         <div className="card stack" style={{ width: "100%", maxWidth: 760 }}>

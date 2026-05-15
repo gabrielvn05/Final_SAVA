@@ -71,7 +71,7 @@ export function AppShell({ profile, userEmail, children }: AppShellProps) {
         <div className="app-shell__body">
           <main className="app-main">{children}</main>
           <footer className="app-footer">
-            <span>Sistema academico - Modulo de tramites</span>
+            <span>Elaborado por Anchundia Liliana, Baque victor, Velez Gabriel, Zamora Miguel</span>
           </footer>
         </div>
       </AppShellChrome>

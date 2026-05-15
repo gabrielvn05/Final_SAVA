@@ -41,6 +41,7 @@ export default function LoginPage({ searchParams }: LoginPageProps) {
         />
         <h1> Sistema de Asistencia y Validaciones Académicas (SAVA)</h1>
         <p>Gestión de permisos y justificaciones</p>
+        <p>Elaborado por Anchundia Liliana, Baque victor, Velez Gabriel, Zamora Miguel</p>
       </aside>
       <div className="login-panel">
         <div className="card stack login-card">
